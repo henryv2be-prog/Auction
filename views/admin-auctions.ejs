@@ -1,0 +1,86 @@
+<%- include("partials/header", { title, user, notice, formError }) %>
+
+<section class="hero">
+  <h1>Auction Management</h1>
+  <p>Create and manage separate auctions, each with multiple assets.</p>
+</section>
+
+<section class="card">
+  <h2>Create Auction</h2>
+  <form action="/admin/auctions" method="post" class="grid-form">
+    <label>
+      Auction name
+      <input type="text" name="title" required />
+    </label>
+    <label>
+      Status
+      <select name="status">
+        <option value="open">Open</option>
+        <option value="closed">Closed</option>
+      </select>
+    </label>
+    <label class="full-row">
+      Description
+      <textarea name="description" rows="3"></textarea>
+    </label>
+    <label>
+      Starts at
+      <input type="datetime-local" name="startAt" required />
+    </label>
+    <label>
+      Ends at
+      <input type="datetime-local" name="endAt" required />
+    </label>
+    <div class="button-row">
+      <button type="submit" class="btn">Create Auction</button>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Auctions</h2>
+  <% if (!auctions.length) { %>
+    <p>No auctions created yet.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Assets</th>
+            <th>Starts</th>
+            <th>Ends</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% auctions.forEach((auction) => { %>
+            <tr>
+              <td>
+                <strong><%= auction.title %></strong>
+                <% if (auction.description) { %>
+                  <div class="subtle"><%= auction.description %></div>
+                <% } %>
+              </td>
+              <td><span class="status <%= auction.status %>"><%= auction.status %></span></td>
+              <td><%= auction.asset_count %></td>
+              <td><%= new Date(auction.start_at).toLocaleString() %></td>
+              <td><%= new Date(auction.end_at).toLocaleString() %></td>
+              <td class="actions-cell">
+                <a class="btn btn-secondary" href="/admin/auctions/<%= auction.id %>/edit">Manage</a>
+                <% if (auction.status !== "closed") { %>
+                  <form action="/admin/auctions/<%= auction.id %>/close" method="post" class="inline-form">
+                    <button type="submit" class="btn btn-secondary">Close</button>
+                  </form>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<%- include("partials/footer") %>

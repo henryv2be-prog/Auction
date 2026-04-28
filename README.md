@@ -9,7 +9,11 @@ An online auction platform where:
 
 - Session-based authentication (`admin` and `user` roles)
 - Default seeded admin user on first startup
-- Admin dashboard to create and close auction listings
+- Admin auction management:
+  - create multiple auctions
+  - add multiple assets per auction
+  - close auctions
+  - edit auctions/assets and manage media
 - Public asset listing and detail pages
 - User bidding with validation (bid must be greater than current price)
 - User "My Bids" page
@@ -17,6 +21,7 @@ An online auction platform where:
 - Socket.IO real-time updates for bid and status changes
 - Rand (ZAR) currency display throughout the UI
 - Admin media uploads (images + videos) per auction item
+- Public homepage grouped by auctions with featured assets
 
 ## Tech Stack
 
@@ -78,13 +83,16 @@ See `.env.example`:
 - `DATA_DIR` (default `/tmp/auction-platform`)
 - `DB_PATH`
 - `SESSION_DB_PATH`
+- `UPLOADS_DIR`
+- `MAX_MEDIA_FILES`
+- `MAX_MEDIA_FILE_MB`
 - `ADMIN_NAME`
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
 
 ## Media uploads
 
-- Admins can attach up to **10 files** when creating an auction item.
+- Admins can attach up to **8 files** when creating an auction item (default).
 - Supported file types:
   - Images: `jpg`, `jpeg`, `png`, `webp`, `gif`
   - Videos: `mp4`, `webm`, `mov`, `m4v`

@@ -2,9 +2,42 @@
 
 <section class="page-header">
   <h1>Live Auctions</h1>
-  <p>Browse open and closed auction assets.</p>
+  <p>Browse active auctions and available assets.</p>
 </section>
 
+<div class="grid">
+  <% if (!auctions.length) { %>
+    <article class="card">
+      <h2>No auctions available</h2>
+      <p class="muted">New auctions will appear here once published by the admin team.</p>
+    </article>
+  <% } %>
+
+  <% auctions.forEach((auction) => { %>
+    <article class="card">
+      <div class="card-header">
+        <h2><%= auction.name %></h2>
+        <span class="badge <%= auction.status === 'open' ? 'badge-open' : 'badge-closed' %>">
+          <%= auction.status.toUpperCase() %>
+        </span>
+      </div>
+      <p class="muted"><%= auction.description || "No description provided." %></p>
+      <dl class="detail-list">
+        <div>
+          <dt>Auction Date</dt>
+          <dd><%= new Date(auction.auction_date).toLocaleString() %></dd>
+        </div>
+        <div>
+          <dt>Total Assets</dt>
+          <dd><%= auction.asset_count %></dd>
+        </div>
+      </dl>
+      <a class="btn" href="/auctions/<%= auction.id %>">View Auction</a>
+    </article>
+  <% }) %>
+</div>
+
+<h2 class="section">Featured Assets</h2>
 <div class="grid" data-realtime-root data-mode="listing">
   <% if (!assets.length) { %>
     <article class="card">

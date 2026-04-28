@@ -89,15 +89,7 @@ const upload = multer({
 });
 
 function adminAssetUpload(req, res, next) {
-  upload.array("media", maxMediaFiles)(req, res, async (error) => {
-    if (!error) {
-      next();
-      return;
-    }
-
-    await deleteFilesIfPresent(req.files || []);
-    return renderAdminDashboard(res, buildUploadErrorMessage(error), 400);
-  });
+  upload.array("media", maxMediaFiles)(req, res, next);
 }
 
 app.set("view engine", "ejs");
@@ -294,17 +286,86 @@ app.post("/logout", (req, res) => {
 app.get("/assets", async (req, res, next) => {
   try {
     const db = getDb();
+    const auctions = await db.all(
+      `SELECT a.id,
+              a.title AS name,
+              a.description,
+              a.start_at,
+              a.end_at,
+              a.start_at AS auction_date,
+              a.status,
+              (SELECT COUNT(*) FROM assets x WHERE x.auction_id = a.id) AS asset_count
+       FROM auctions a
+       ORDER BY CASE a.status WHEN 'open' THEN 0 ELSE 1 END, a.start_at DESC`
+    );
     const assets = await db.all(
       `SELECT a.*,
+              auc.title AS auction_title,
               u.name AS seller_name,
               (SELECT COUNT(*) FROM bids b WHERE b.asset_id = a.id) AS bid_count,
               (SELECT MAX(amount) FROM bids b WHERE b.asset_id = a.id) AS top_bid
        FROM assets a
+       JOIN auctions auc ON auc.id = a.auction_id
        JOIN users u ON u.id = a.created_by
-       ORDER BY CASE a.status WHEN 'open' THEN 0 ELSE 1 END, a.end_at ASC`
+       ORDER BY CASE a.status WHEN 'open' THEN 0 ELSE 1 END, a.end_at ASC
+       LIMIT 18`
     );
 
-    return res.render("index", { title: "Assets", assets });
+    return res.render("index", { title: "Assets", auctions, assets });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get("/auctions/:id", async (req, res, next) => {
+  try {
+    const db = getDb();
+    const auctionId = Number(req.params.id);
+    const auction = await db.get(
+      `SELECT id, title AS name, description, start_at, end_at, status
+       FROM auctions
+       WHERE id = ?`,
+      auctionId
+    );
+    if (!auction) {
+      return res.status(404).render("error", {
+        title: "Not Found",
+        message: "Auction not found."
+      });
+    }
+
+    const assets = await db.all(
+      `SELECT a.*,
+              auc.title AS auction_title,
+              u.name AS seller_name,
+              (SELECT COUNT(*) FROM bids b WHERE b.asset_id = a.id) AS bid_count
+       FROM assets a
+       JOIN auctions auc ON auc.id = a.auction_id
+       JOIN users u ON u.id = a.created_by
+       WHERE a.auction_id = ?
+       ORDER BY CASE a.status WHEN 'open' THEN 0 ELSE 1 END, a.end_at ASC`,
+      auctionId
+    );
+
+    const relatedAuctions = await db.all(
+      `SELECT id,
+              title AS name,
+              description,
+              start_at,
+              end_at,
+              start_at AS auction_date,
+              status,
+              (SELECT COUNT(*) FROM assets x WHERE x.auction_id = auctions.id) AS asset_count
+       FROM auctions
+       WHERE id = ?`,
+      auctionId
+    );
+
+    return res.render("index", {
+      title: auction.name,
+      auctions: relatedAuctions,
+      assets
+    });
   } catch (error) {
     return next(error);
   }
@@ -316,8 +377,13 @@ app.get("/assets/:id", async (req, res, next) => {
     const assetId = Number(req.params.id);
     const asset = await db.get(
       `SELECT a.*,
+              auc.id AS auction_id,
+              auc.title AS auction_title,
+              auc.status AS auction_status,
+              auc.end_at AS auction_end_at,
               u.name AS seller_name
        FROM assets a
+       JOIN auctions auc ON auc.id = a.auction_id
        JOIN users u ON u.id = a.created_by
        WHERE a.id = ?`,
       assetId
@@ -433,18 +499,63 @@ app.get("/my-bids", requireRole("user"), async (req, res, next) => {
   }
 });
 
-app.get("/admin", requireRole("admin"), async (req, res, next) => {
+app.get("/admin", requireRole("admin"), async (req, res) => {
+  return res.redirect("/admin/auctions");
+});
+
+app.get("/admin/auctions", requireRole("admin"), async (req, res, next) => {
   try {
+    const auctions = await listAuctionsWithCounts();
+    return res.render("admin-auctions", {
+      title: "Auction Management",
+      auctions,
+      formError: null
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post("/admin/auctions", requireRole("admin"), async (req, res, next) => {
+  try {
+    const data = validateAuctionFields(req.body);
     const db = getDb();
-    const assets = await db.all(
-      `SELECT a.*,
-              (SELECT COUNT(*) FROM bids b WHERE b.asset_id = a.id) AS bid_count
-       FROM assets a
-       ORDER BY a.created_at DESC`
+    await db.run(
+      `INSERT INTO auctions (title, description, start_at, end_at, status, created_by)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      data.name,
+      data.description,
+      data.startAt.toISOString(),
+      data.endAt.toISOString(),
+      data.status,
+      req.session.user.id
     );
 
-    return res.render("admin-dashboard", {
-      title: "Admin Dashboard",
+    req.session.notice = "Auction created successfully.";
+    return res.redirect("/admin/auctions");
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return renderAdminAuctionsWithError(res, error.message, 400);
+    }
+    return next(error);
+  }
+});
+
+app.get("/admin/auctions/:id/edit", requireRole("admin"), async (req, res, next) => {
+  try {
+    const auctionId = Number(req.params.id);
+    const auction = await getAuctionById(auctionId);
+    if (!auction) {
+      return res.status(404).render("error", {
+        title: "Not Found",
+        message: "Auction not found."
+      });
+    }
+
+    const assets = await listAuctionAssets(auctionId);
+    return res.render("admin-auction-detail", {
+      title: `Manage ${auction.name}`,
+      auction,
       assets,
       formError: null
     });
@@ -453,85 +564,236 @@ app.get("/admin", requireRole("admin"), async (req, res, next) => {
   }
 });
 
-app.post("/admin/assets", requireRole("admin"), adminAssetUpload, async (req, res, next) => {
-  const uploadedFiles = req.files || [];
-  const db = getDb();
+app.post("/admin/auctions/:id/edit", requireRole("admin"), async (req, res, next) => {
+  const auctionId = Number(req.params.id);
   try {
-    const { title, description, startPrice, endAt } = req.body;
-
-    if (!title || !description || !startPrice || !endAt) {
-      await deleteFilesIfPresent(uploadedFiles);
-      return renderAdminDashboard(
-        res,
-        "All fields are required to create an auction asset.",
-        400
-      );
+    const existingAuction = await getAuctionById(auctionId);
+    if (!existingAuction) {
+      return res.status(404).render("error", {
+        title: "Not Found",
+        message: "Auction not found."
+      });
     }
 
-    const price = Number(startPrice);
-    const endDate = new Date(endAt);
-    const now = new Date();
-
-    if (!Number.isFinite(price) || price <= 0) {
-      await deleteFilesIfPresent(uploadedFiles);
-      return renderAdminDashboard(res, "Start price must be a valid positive number.", 400);
-    }
-
-    if (Number.isNaN(endDate.getTime()) || endDate <= now) {
-      await deleteFilesIfPresent(uploadedFiles);
-      return renderAdminDashboard(res, "End date must be a valid future date/time.", 400);
-    }
-
-    await db.run("BEGIN IMMEDIATE TRANSACTION");
-    const result = await db.run(
-      `INSERT INTO assets (title, description, start_price, current_price, start_at, end_at, status, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, 'open', ?)`,
-      String(title).trim(),
-      String(description).trim(),
-      price,
-      price,
-      new Date().toISOString(),
-      endDate.toISOString(),
-      req.session.user.id
+    const data = validateAuctionFields(req.body);
+    const db = getDb();
+    await db.run(
+      `UPDATE auctions
+       SET title = ?, description = ?, status = ?, start_at = ?, end_at = ?
+       WHERE id = ?`,
+      data.name,
+      data.description,
+      data.status,
+      data.startAt.toISOString(),
+      data.endAt.toISOString(),
+      auctionId
     );
+    await syncAuctionAssetsWithAuctionWindow(auctionId);
 
-    if (uploadedFiles.length) {
-      for (const file of uploadedFiles) {
-        await db.run(
-          `INSERT INTO asset_media (asset_id, media_type, file_path, original_name)
-           VALUES (?, ?, ?, ?)`,
-          result.lastID,
-          inferMediaTypeFromMime(file.mimetype),
-          file.filename,
-          file.originalname
-        );
-      }
-    }
-
-    await db.run("COMMIT");
-    await broadcastAssetUpdate(result.lastID);
-
-    req.session.notice = "Asset created and opened for bidding.";
-    return res.redirect("/admin");
+    req.session.notice = "Auction updated.";
+    return res.redirect(`/admin/auctions/${auctionId}/edit`);
   } catch (error) {
-    try {
-      await db.run("ROLLBACK");
-    } catch (rollbackError) {
-      // no-op
+    if (error instanceof ValidationError) {
+      return renderAdminAuctionDetailWithError(res, auctionId, error.message, 400);
     }
-    await deleteFilesIfPresent(uploadedFiles);
     return next(error);
   }
 });
 
-app.post("/admin/assets/:id/close", requireRole("admin"), async (req, res, next) => {
+app.post("/admin/auctions/:id/close", requireRole("admin"), async (req, res, next) => {
+  const auctionId = Number(req.params.id);
   try {
     const db = getDb();
-    const assetId = Number(req.params.id);
-    await db.run("UPDATE assets SET status = 'closed' WHERE id = ?", assetId);
-    await broadcastAssetUpdate(assetId);
+    await db.run("BEGIN IMMEDIATE TRANSACTION");
+    await db.run("UPDATE auctions SET status = 'closed' WHERE id = ?", auctionId);
+    const assets = await db.all("SELECT id FROM assets WHERE auction_id = ?", auctionId);
+    await db.run("UPDATE assets SET status = 'closed' WHERE auction_id = ?", auctionId);
+    await db.run("COMMIT");
+
+    await Promise.all(assets.map((asset) => broadcastAssetUpdate(asset.id)));
+
     req.session.notice = "Auction closed successfully.";
-    return res.redirect("/admin");
+    return res.redirect(`/admin/auctions/${auctionId}/edit`);
+  } catch (error) {
+    try {
+      await getDb().run("ROLLBACK");
+    } catch (rollbackError) {
+      // no-op
+    }
+    return next(error);
+  }
+});
+
+app.post(
+  "/admin/auctions/:id/assets",
+  requireRole("admin"),
+  adminAssetUpload,
+  async (req, res, next) => {
+    const auctionId = Number(req.params.id);
+    const uploadedFiles = req.files || [];
+    const db = getDb();
+    try {
+      const auction = await getAuctionById(auctionId);
+      if (!auction) {
+        await deleteFilesIfPresent(uploadedFiles);
+        return res.status(404).render("error", {
+          title: "Not Found",
+          message: "Auction not found."
+        });
+      }
+
+      const data = validateAssetFields(req.body);
+      let createdAssetId = null;
+      await runInTransaction(db, async () => {
+        const result = await db.run(
+          `INSERT INTO assets
+           (auction_id, title, description, start_price, current_price, start_at, end_at, status, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          auctionId,
+          data.title,
+          data.description,
+          data.startPrice,
+          data.startPrice,
+          auction.start_at,
+          auction.end_at,
+          auction.status === "open" ? "open" : "closed",
+          req.session.user.id
+        );
+        createdAssetId = result.lastID;
+        await saveAssetMediaFiles(db, result.lastID, uploadedFiles);
+      });
+
+      if (createdAssetId) {
+        await broadcastAssetUpdate(createdAssetId);
+      }
+
+      req.session.notice = "Asset added to auction.";
+      return res.redirect(`/admin/auctions/${auctionId}/edit`);
+    } catch (error) {
+      await deleteFilesIfPresent(uploadedFiles);
+      if (error instanceof ValidationError) {
+        return renderAdminAuctionDetailWithError(res, auctionId, error.message, 400);
+      }
+      return next(error);
+    }
+  }
+);
+
+app.get("/admin/assets/:id/edit", requireRole("admin"), async (req, res, next) => {
+  try {
+    const assetId = Number(req.params.id);
+    const asset = await getAssetById(assetId);
+    if (!asset) {
+      return res.status(404).render("error", {
+        title: "Not Found",
+        message: "Asset not found."
+      });
+    }
+    const auction = await getAuctionById(asset.auction_id);
+    const media = await getAssetMedia(assetId);
+    return res.render("admin-asset-edit", {
+      title: `Edit ${asset.title}`,
+      asset,
+      auction,
+      media,
+      formError: null
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post("/admin/assets/:id/edit", requireRole("admin"), adminAssetUpload, async (req, res, next) => {
+  const assetId = Number(req.params.id);
+  const uploadedFiles = req.files || [];
+  const db = getDb();
+  try {
+    const asset = await getAssetById(assetId);
+    if (!asset) {
+      await deleteFilesIfPresent(uploadedFiles);
+      return res.status(404).render("error", {
+        title: "Not Found",
+        message: "Asset not found."
+      });
+    }
+
+    const data = validateAssetEditFields(req.body);
+    await runInTransaction(db, async () => {
+      await db.run(
+        `UPDATE assets
+         SET title = ?, description = ?, start_price = ?, end_at = ?, status = ?
+         WHERE id = ?`,
+        data.title,
+        data.description,
+        data.startPrice,
+        data.endAt.toISOString(),
+        data.status,
+        assetId
+      );
+      await saveAssetMediaFiles(db, assetId, uploadedFiles);
+      await db.run(
+        `UPDATE assets
+         SET current_price = CASE
+           WHEN current_price < ? THEN ?
+           ELSE current_price
+         END
+         WHERE id = ?`,
+        data.startPrice,
+        data.startPrice,
+        assetId
+      );
+    });
+
+    await broadcastAssetUpdate(assetId);
+    req.session.notice = "Asset updated.";
+    return res.redirect(`/admin/assets/${assetId}/edit`);
+  } catch (error) {
+    await deleteFilesIfPresent(uploadedFiles);
+    if (error instanceof ValidationError) {
+      return renderAdminAssetEditWithError(res, assetId, error.message, 400);
+    }
+    return next(error);
+  }
+});
+
+app.post("/admin/assets/:id/remove", requireRole("admin"), async (req, res, next) => {
+  const assetId = Number(req.params.id);
+  try {
+    const asset = await getAssetById(assetId);
+    if (!asset) {
+      return res.status(404).render("error", {
+        title: "Not Found",
+        message: "Asset not found."
+      });
+    }
+
+    const media = await getAssetMediaRaw(assetId);
+    await getDb().run("DELETE FROM assets WHERE id = ?", assetId);
+    await deleteMediaFilesByRows(media);
+
+    req.session.notice = "Asset removed from auction.";
+    return res.redirect(`/admin/auctions/${asset.auction_id}/edit`);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post("/admin/media/:id/delete", requireRole("admin"), async (req, res, next) => {
+  const mediaId = Number(req.params.id);
+  try {
+    const db = getDb();
+    const media = await db.get("SELECT id, asset_id, file_path FROM asset_media WHERE id = ?", mediaId);
+    if (!media) {
+      return res.status(404).render("error", {
+        title: "Not Found",
+        message: "Media file not found."
+      });
+    }
+
+    await db.run("DELETE FROM asset_media WHERE id = ?", mediaId);
+    await deleteMediaFilesByRows([media]);
+    req.session.notice = "Media removed.";
+    return res.redirect(`/admin/assets/${media.asset_id}/edit`);
   } catch (error) {
     return next(error);
   }
@@ -546,7 +808,17 @@ app.use((req, res) => {
 
 app.use((error, req, res, next) => {
   if (error instanceof multer.MulterError || error.message === "Only image and video files are allowed.") {
-    return renderAdminDashboard(res, buildUploadErrorMessage(error), 400);
+    const auctionIdMatch = req.path.match(/^\/admin\/auctions\/(\d+)\/assets$/);
+    if (auctionIdMatch) {
+      const auctionId = Number(auctionIdMatch[1]);
+      return renderAdminAuctionDetailWithError(res, auctionId, buildUploadErrorMessage(error), 400);
+    }
+    const assetEditMatch = req.path.match(/^\/admin\/assets\/(\d+)\/edit$/);
+    if (assetEditMatch) {
+      const assetId = Number(assetEditMatch[1]);
+      return renderAdminAssetEditWithError(res, assetId, buildUploadErrorMessage(error), 400);
+    }
+    return renderAdminAuctionsWithError(res, buildUploadErrorMessage(error), 400);
   }
 
   console.error(error);
@@ -584,17 +856,47 @@ async function renderAssetWithError(res, assetId, formError) {
   });
 }
 
-async function renderAdminDashboard(res, formError, statusCode) {
-  const db = getDb();
-  const assets = await db.all(
-    `SELECT a.*,
-            (SELECT COUNT(*) FROM bids b WHERE b.asset_id = a.id) AS bid_count
-     FROM assets a
-     ORDER BY a.created_at DESC`
-  );
-  return res.status(statusCode).render("admin-dashboard", {
-    title: "Admin Dashboard",
+async function renderAdminAuctionsWithError(res, formError, statusCode) {
+  const auctions = await listAuctionsWithCounts();
+  return res.status(statusCode).render("admin-auctions", {
+    title: "Auction Management",
+    auctions,
+    formError
+  });
+}
+
+async function renderAdminAuctionDetailWithError(res, auctionId, formError, statusCode) {
+  const auction = await getAuctionById(auctionId);
+  if (!auction) {
+    return res.status(404).render("error", {
+      title: "Not Found",
+      message: "Auction not found."
+    });
+  }
+  const assets = await listAuctionAssets(auctionId);
+  return res.status(statusCode).render("admin-auction-detail", {
+    title: `Manage ${auction.name}`,
+    auction,
     assets,
+    formError
+  });
+}
+
+async function renderAdminAssetEditWithError(res, assetId, formError, statusCode) {
+  const asset = await getAssetById(assetId);
+  if (!asset) {
+    return res.status(404).render("error", {
+      title: "Not Found",
+      message: "Asset not found."
+    });
+  }
+  const auction = await getAuctionById(asset.auction_id);
+  const media = await getAssetMedia(assetId);
+  return res.status(statusCode).render("admin-asset-edit", {
+    title: `Edit ${asset.title}`,
+    asset,
+    auction,
+    media,
     formError
   });
 }
@@ -619,6 +921,218 @@ async function closeExpiredAssets() {
   );
 
   await Promise.all(expiredAssets.map((asset) => broadcastAssetUpdate(asset.id)));
+}
+
+class ValidationError extends Error {}
+
+function validateAuctionFields(body) {
+  const name = String(body.name || "").trim();
+  const description = String(body.description || "").trim();
+  const status = String(body.status || "draft").trim().toLowerCase();
+  const startAt = new Date(body.startAt);
+  const endAt = new Date(body.endAt);
+
+  if (!name) {
+    throw new ValidationError("Auction name is required.");
+  }
+  if (!["draft", "open", "closed"].includes(status)) {
+    throw new ValidationError("Invalid auction status.");
+  }
+  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
+    throw new ValidationError("Auction start and end dates are required.");
+  }
+  if (endAt <= startAt) {
+    throw new ValidationError("Auction end date must be after start date.");
+  }
+
+  return {
+    name,
+    description,
+    status,
+    startAt,
+    endAt
+  };
+}
+
+function validateAssetFields(body) {
+  const title = String(body.title || "").trim();
+  const description = String(body.description || "").trim();
+  const startPrice = Number(body.startPrice);
+
+  if (!title || !description) {
+    throw new ValidationError("Asset title and description are required.");
+  }
+  if (!Number.isFinite(startPrice) || startPrice <= 0) {
+    throw new ValidationError("Start price must be a positive number.");
+  }
+
+  return {
+    title,
+    description,
+    startPrice
+  };
+}
+
+function validateAssetEditFields(body) {
+  const base = validateAssetFields(body);
+  const status = String(body.status || "").trim().toLowerCase();
+  const endAt = new Date(body.endAt);
+
+  if (!["open", "closed"].includes(status)) {
+    throw new ValidationError("Asset status must be open or closed.");
+  }
+  if (Number.isNaN(endAt.getTime())) {
+    throw new ValidationError("Asset end date is invalid.");
+  }
+
+  return {
+    ...base,
+    status,
+    endAt
+  };
+}
+
+async function listAuctionsWithCounts() {
+  const db = getDb();
+  return db.all(
+    `SELECT a.id,
+            a.title AS name,
+            a.description,
+            a.start_at,
+            a.end_at,
+            a.status,
+            (SELECT COUNT(*) FROM assets s WHERE s.auction_id = a.id) AS asset_count
+     FROM auctions a
+     ORDER BY a.created_at DESC`
+  );
+}
+
+async function listAuctionAssets(auctionId) {
+  const db = getDb();
+  return db.all(
+    `SELECT a.id,
+            a.auction_id,
+            a.title,
+            a.description,
+            a.start_price,
+            a.current_price,
+            a.start_at,
+            a.end_at,
+            a.status,
+            (SELECT COUNT(*) FROM bids b WHERE b.asset_id = a.id) AS bid_count
+     FROM assets a
+     WHERE a.auction_id = ?
+     ORDER BY a.created_at DESC`,
+    auctionId
+  );
+}
+
+async function getAuctionById(auctionId) {
+  const db = getDb();
+  return db.get(
+    `SELECT id,
+            title AS name,
+            description,
+            start_at,
+            end_at,
+            status
+     FROM auctions
+     WHERE id = ?`,
+    auctionId
+  );
+}
+
+async function getAssetById(assetId) {
+  const db = getDb();
+  return db.get(
+    `SELECT id,
+            auction_id,
+            title,
+            description,
+            start_price,
+            current_price,
+            start_at,
+            end_at,
+            status
+     FROM assets
+     WHERE id = ?`,
+    assetId
+  );
+}
+
+async function getAssetMediaRaw(assetId) {
+  const db = getDb();
+  return db.all(
+    `SELECT id, asset_id, media_type, file_path, original_name
+     FROM asset_media
+     WHERE asset_id = ?`,
+    assetId
+  );
+}
+
+async function saveAssetMediaFiles(db, assetId, uploadedFiles) {
+  if (!uploadedFiles.length) {
+    return;
+  }
+
+  for (const file of uploadedFiles) {
+    await db.run(
+      `INSERT INTO asset_media (asset_id, media_type, file_path, original_name)
+       VALUES (?, ?, ?, ?)`,
+      assetId,
+      inferMediaTypeFromMime(file.mimetype),
+      file.filename,
+      file.originalname
+    );
+  }
+}
+
+async function deleteMediaFilesByRows(rows) {
+  const files = rows.map((row) => ({ path: path.join(uploadsDir, row.file_path) }));
+  await deleteFilesIfPresent(files);
+}
+
+async function runInTransaction(db, callback) {
+  await db.run("BEGIN IMMEDIATE TRANSACTION");
+  try {
+    await callback();
+    await db.run("COMMIT");
+  } catch (error) {
+    try {
+      await db.run("ROLLBACK");
+    } catch (rollbackError) {
+      // no-op
+    }
+    throw error;
+  }
+}
+
+async function syncAuctionAssetsWithAuctionWindow(auctionId) {
+  const auction = await getAuctionById(auctionId);
+  if (!auction) {
+    return;
+  }
+
+  const db = getDb();
+  await db.run(
+    `UPDATE assets
+     SET start_at = ?,
+         end_at = ?,
+         status = CASE
+           WHEN ? = 'open' AND status != 'closed' THEN 'open'
+           WHEN ? = 'closed' THEN 'closed'
+           ELSE status
+         END
+     WHERE auction_id = ?`,
+    auction.start_at,
+    auction.end_at,
+    auction.status,
+    auction.status,
+    auctionId
+  );
+
+  const assets = await db.all("SELECT id FROM assets WHERE auction_id = ?", auctionId);
+  await Promise.all(assets.map((asset) => broadcastAssetUpdate(asset.id)));
 }
 
 function formatCurrency(value) {

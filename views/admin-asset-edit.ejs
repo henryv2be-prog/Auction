@@ -1,0 +1,84 @@
+<%- include("partials/header", { title, user, notice, formError }) %>
+
+<section class="hero">
+  <h1>Edit Asset</h1>
+  <p>
+    Auction:
+    <a href="/admin/auctions/<%= auction.id %>/edit"><%= auction.title %></a>
+  </p>
+</section>
+
+<section class="card">
+  <form
+    method="post"
+    action="/admin/assets/<%= asset.id %>/edit"
+    enctype="multipart/form-data"
+    class="grid-form"
+  >
+    <label>
+      Asset title
+      <input type="text" name="title" value="<%= asset.title %>" required />
+    </label>
+    <label>
+      Start price
+      <input type="number" name="startPrice" value="<%= asset.start_price %>" step="0.01" min="0.01" required />
+    </label>
+    <label class="full-row">
+      Description
+      <textarea name="description" rows="4" required><%= asset.description %></textarea>
+    </label>
+    <label>
+      Auction ends at
+      <input
+        type="datetime-local"
+        name="endAt"
+        value="<%= new Date(asset.end_at).toISOString().slice(0, 16) %>"
+        required
+      />
+    </label>
+    <label>
+      Status
+      <select name="status">
+        <option value="open" <%= asset.status === "open" ? "selected" : "" %>>Open</option>
+        <option value="closed" <%= asset.status === "closed" ? "selected" : "" %>>Closed</option>
+      </select>
+    </label>
+    <label class="full-row">
+      Add more media
+      <input type="file" name="media" accept="image/*,video/*" multiple />
+    </label>
+    <p class="muted full-row upload-help">You can keep existing media and add more files.</p>
+    <div class="button-row">
+      <button type="submit" class="btn">Save Changes</button>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Current Media</h2>
+  <% if (!media.length) { %>
+    <p class="muted">No media attached.</p>
+  <% } else { %>
+    <div class="media-grid">
+      <% media.forEach((item) => { %>
+        <article class="media-card">
+          <% if (item.media_type === "image") { %>
+            <img src="<%= item.file_path %>" alt="<%= item.original_name %>" loading="lazy" />
+          <% } else { %>
+            <video controls preload="metadata">
+              <source src="<%= item.file_path %>" />
+            </video>
+          <% } %>
+          <div class="media-card-actions">
+            <p class="media-caption"><%= item.original_name %></p>
+            <form method="post" action="/admin/media/<%= item.id %>/delete">
+              <button type="submit" class="btn btn-secondary">Remove</button>
+            </form>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+  <% } %>
+</section>
+
+<%- include("partials/footer") %>

@@ -12,6 +12,10 @@
     <p><%= asset.description %></p>
     <dl class="asset-meta">
       <div>
+        <dt>Auction</dt>
+        <dd><%= asset.auction_title || "General Auction" %></dd>
+      </div>
+      <div>
         <dt>Seller</dt>
         <dd><%= asset.seller_name %></dd>
       </div>

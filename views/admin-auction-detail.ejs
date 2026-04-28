@@ -1,0 +1,130 @@
+<%- include("partials/header", { title, user, notice, formError }) %>
+
+<section class="hero">
+  <h1><%= auction.title %></h1>
+  <p class="muted"><%= auction.description || "No description provided." %></p>
+  <p class="muted">
+    Status: <strong><%= auction.status.toUpperCase() %></strong> |
+    Starts: <%= new Date(auction.start_at).toLocaleString() %> |
+    Ends: <%= new Date(auction.end_at).toLocaleString() %>
+  </p>
+</section>
+
+<section class="card">
+  <h2>Edit Auction</h2>
+  <form action="/admin/auctions/<%= auction.id %>/edit" method="post" class="grid-form">
+    <label>
+      Auction name
+      <input type="text" name="name" value="<%= auction.title %>" required />
+    </label>
+    <label>
+      Status
+      <select name="status" required>
+        <option value="draft" <%= auction.status === "draft" ? "selected" : "" %>>Draft</option>
+        <option value="open" <%= auction.status === "open" ? "selected" : "" %>>Open</option>
+        <option value="closed" <%= auction.status === "closed" ? "selected" : "" %>>Closed</option>
+      </select>
+    </label>
+    <label>
+      Starts at
+      <input
+        type="datetime-local"
+        name="startAt"
+        value="<%= new Date(auction.start_at).toISOString().slice(0, 16) %>"
+        required
+      />
+    </label>
+    <label>
+      Ends at
+      <input
+        type="datetime-local"
+        name="endAt"
+        value="<%= new Date(auction.end_at).toISOString().slice(0, 16) %>"
+        required
+      />
+    </label>
+    <label class="full-row">
+      Description
+      <textarea name="description" rows="3"><%= auction.description || "" %></textarea>
+    </label>
+    <div class="button-row">
+      <button type="submit" class="btn">Save Auction</button>
+    </div>
+  </form>
+  <% if (auction.status !== "closed") { %>
+    <form action="/admin/auctions/<%= auction.id %>/close" method="post" class="inline-form">
+      <button type="submit" class="btn btn-secondary">Close Auction</button>
+    </form>
+  <% } %>
+</section>
+
+<section class="card">
+  <h2>Add Asset to This Auction</h2>
+  <form
+    action="/admin/auctions/<%= auction.id %>/assets"
+    method="post"
+    enctype="multipart/form-data"
+    class="grid-form"
+  >
+    <label>
+      Asset title
+      <input type="text" name="title" required />
+    </label>
+    <label>
+      Start price
+      <input type="number" name="startPrice" step="0.01" min="0.01" required />
+    </label>
+    <label class="full-row">
+      Description
+      <textarea name="description" rows="4" required></textarea>
+    </label>
+    <label class="full-row">
+      Item images/videos (optional)
+      <input type="file" name="media" accept="image/*,video/*" multiple />
+    </label>
+    <div class="button-row">
+      <button type="submit" class="btn">Add Asset</button>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Assets in This Auction</h2>
+  <% if (!assets.length) { %>
+    <p>No assets in this auction yet.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Status</th>
+            <th>Current Price</th>
+            <th>Bids</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% assets.forEach((asset) => { %>
+            <tr>
+              <td><%= asset.id %></td>
+              <td><a href="/assets/<%= asset.id %>"><%= asset.title %></a></td>
+              <td><%= asset.status %></td>
+              <td><%= formatCurrency(asset.current_price) %></td>
+              <td><%= asset.bid_count %></td>
+              <td>
+                <a class="btn btn-secondary" href="/admin/assets/<%= asset.id %>/edit">Edit</a>
+                <form action="/admin/assets/<%= asset.id %>/remove" method="post" class="inline-form">
+                  <button type="submit" class="btn btn-secondary">Remove</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<%- include("partials/footer") %>
