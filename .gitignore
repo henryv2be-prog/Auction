@@ -1,0 +1,5 @@
+node_modules/
+auction.db
+sessions.sqlite
+.env
+npm-debug.log*

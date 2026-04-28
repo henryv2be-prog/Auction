@@ -1,0 +1,51 @@
+<%- include("partials/header", { title, user, notice, formError: null }) %>
+
+<section class="page-header">
+  <h1>Live Auctions</h1>
+  <p>Browse open and closed auction assets.</p>
+</section>
+
+<div class="grid">
+  <% if (!assets.length) { %>
+    <article class="card">
+      <p>No assets available yet.</p>
+    </article>
+  <% } %>
+
+  <% assets.forEach((asset) => { %>
+    <article class="card">
+      <div class="card-header">
+        <h2><%= asset.title %></h2>
+        <span class="badge <%= asset.status === 'open' ? 'badge-open' : 'badge-closed' %>">
+          <%= asset.status.toUpperCase() %>
+        </span>
+      </div>
+      <p class="muted"><%= asset.description %></p>
+      <dl class="detail-list">
+        <div>
+          <dt>Current Price</dt>
+          <dd>$<%= Number(asset.current_price).toFixed(2) %></dd>
+        </div>
+        <div>
+          <dt>Start Price</dt>
+          <dd>$<%= Number(asset.start_price).toFixed(2) %></dd>
+        </div>
+        <div>
+          <dt>Seller</dt>
+          <dd><%= asset.seller_name %></dd>
+        </div>
+        <div>
+          <dt>Ends</dt>
+          <dd><%= new Date(asset.end_at).toLocaleString() %></dd>
+        </div>
+        <div>
+          <dt>Bids</dt>
+          <dd><%= asset.bid_count %></dd>
+        </div>
+      </dl>
+      <a class="btn" href="/assets/<%= asset.id %>">View Auction</a>
+    </article>
+  <% }) %>
+</div>
+
+<%- include("partials/footer") %>

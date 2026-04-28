@@ -1,0 +1,82 @@
+<%- include("partials/header", { title, user, notice, formError }) %>
+
+<section class="detail-grid">
+  <article class="asset-card">
+    <h1><%= asset.title %></h1>
+    <p><%= asset.description %></p>
+    <dl class="asset-meta">
+      <div>
+        <dt>Seller</dt>
+        <dd><%= asset.seller_name %></dd>
+      </div>
+      <div>
+        <dt>Starting Price</dt>
+        <dd>$<%= Number(asset.start_price).toFixed(2) %></dd>
+      </div>
+      <div>
+        <dt>Current Price</dt>
+        <dd>$<%= Number(asset.current_price).toFixed(2) %></dd>
+      </div>
+      <div>
+        <dt>Status</dt>
+        <dd>
+          <span class="pill <%= asset.status === 'open' ? 'pill-open' : 'pill-closed' %>">
+            <%= asset.status %>
+          </span>
+        </dd>
+      </div>
+      <div>
+        <dt>Auction Ends</dt>
+        <dd><%= new Date(asset.end_at).toLocaleString() %></dd>
+      </div>
+    </dl>
+  </article>
+
+  <aside class="panel">
+    <h2>Place Bid</h2>
+    <% if (!user) { %>
+      <p>Please <a href="/login">login</a> as a user account to bid.</p>
+    <% } else if (user.role !== "user") { %>
+      <p>Admin accounts cannot place bids.</p>
+    <% } else if (asset.status !== "open") { %>
+      <p>This auction has closed.</p>
+    <% } else { %>
+      <form method="post" action="/assets/<%= asset.id %>/bid" class="form">
+        <label for="amount">Bid Amount (USD)</label>
+        <input id="amount" name="amount" type="number" min="0.01" step="0.01" required />
+        <button class="btn" type="submit">Submit Bid</button>
+      </form>
+      <p class="muted">
+        Your bid must be above $<%= Number(asset.current_price).toFixed(2) %>.
+      </p>
+    <% } %>
+  </aside>
+</section>
+
+<section class="section">
+  <h2>Recent Bids</h2>
+  <% if (bids.length === 0) { %>
+    <p class="muted">No bids yet.</p>
+  <% } else { %>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Bidder</th>
+          <th>Amount</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% bids.forEach((bid) => { %>
+          <tr>
+            <td><%= bid.bidder_name %></td>
+            <td>$<%= Number(bid.amount).toFixed(2) %></td>
+            <td><%= new Date(bid.created_at).toLocaleString() %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</section>
+
+<%- include("partials/footer") %>

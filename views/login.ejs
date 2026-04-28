@@ -1,0 +1,17 @@
+<%- include("partials/header", { title, user, notice, formError }) %>
+
+<section class="auth-card">
+  <h1>Sign in</h1>
+  <p>Access your account to bid or manage auctions.</p>
+  <form action="/login" method="post" class="form-grid">
+    <label for="email">Email</label>
+    <input id="email" name="email" type="email" required />
+
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" required />
+
+    <button type="submit" class="btn">Login</button>
+  </form>
+</section>
+
+<%- include("partials/footer") %>

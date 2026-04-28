@@ -1,0 +1,35 @@
+<%- include("partials/header", { title, user, notice, formError: null, message: null }) %>
+
+<section class="card">
+  <h1>My Bids</h1>
+  <% if (bids.length === 0) { %>
+    <p class="muted">You have not placed any bids yet.</p>
+  <% } else { %>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th>Your Bid</th>
+          <th>Current Price</th>
+          <th>Status</th>
+          <th>Placed</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% bids.forEach((bid) => { %>
+          <tr>
+            <td>
+              <a href="/assets/<%= bid.asset_id %>"><%= bid.title %></a>
+            </td>
+            <td>$<%= Number(bid.amount).toFixed(2) %></td>
+            <td>$<%= Number(bid.current_price).toFixed(2) %></td>
+            <td><span class="pill pill-<%= bid.status %>"><%= bid.status %></span></td>
+            <td><%= new Date(bid.created_at).toLocaleString() %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</section>
+
+<%- include("partials/footer") %>
