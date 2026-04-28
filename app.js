@@ -1,9 +1,11 @@
 require("dotenv").config();
 
+const http = require("http");
 const path = require("path");
 const express = require("express");
 const session = require("express-session");
 const SQLiteStore = require("connect-sqlite3")(session);
+const { Server } = require("socket.io");
 const bcrypt = require("bcryptjs");
 
 const { initDb, getDb } = require("./db");
@@ -11,12 +13,32 @@ const { resolveSessionDbPath } = require("./storage");
 const { requireAuth, requireRole } = require("./middleware/auth");
 
 const app = express();
+const httpServer = http.createServer(app);
+const io = new Server(httpServer);
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "public")));
+
+io.on("connection", (socket) => {
+  socket.on("asset:subscribe", (assetId) => {
+    const normalizedAssetId = Number(assetId);
+    if (!Number.isInteger(normalizedAssetId) || normalizedAssetId <= 0) {
+      return;
+    }
+    socket.join(assetRoomName(normalizedAssetId));
+  });
+
+  socket.on("asset:unsubscribe", (assetId) => {
+    const normalizedAssetId = Number(assetId);
+    if (!Number.isInteger(normalizedAssetId) || normalizedAssetId <= 0) {
+      return;
+    }
+    socket.leave(assetRoomName(normalizedAssetId));
+  });
+});
 
 app.use(
   session({
@@ -291,6 +313,7 @@ app.post("/assets/:id/bid", requireRole("user"), async (req, res, next) => {
 
     await db.run("UPDATE assets SET current_price = ? WHERE id = ?", amount, assetId);
     await db.run("COMMIT");
+    await broadcastAssetUpdate(assetId);
 
     req.session.notice = "Bid submitted successfully.";
     return res.redirect(`/assets/${assetId}`);
@@ -367,7 +390,7 @@ app.post("/admin/assets", requireRole("admin"), async (req, res, next) => {
     }
 
     const db = getDb();
-    await db.run(
+    const result = await db.run(
       `INSERT INTO assets (title, description, start_price, current_price, start_at, end_at, status, created_by)
        VALUES (?, ?, ?, ?, ?, ?, 'open', ?)`,
       String(title).trim(),
@@ -378,6 +401,7 @@ app.post("/admin/assets", requireRole("admin"), async (req, res, next) => {
       endDate.toISOString(),
       req.session.user.id
     );
+    await broadcastAssetUpdate(result.lastID);
 
     req.session.notice = "Asset created and opened for bidding.";
     return res.redirect("/admin");
@@ -391,6 +415,7 @@ app.post("/admin/assets/:id/close", requireRole("admin"), async (req, res, next)
     const db = getDb();
     const assetId = Number(req.params.id);
     await db.run("UPDATE assets SET status = 'closed' WHERE id = ?", assetId);
+    await broadcastAssetUpdate(assetId);
     req.session.notice = "Auction closed successfully.";
     return res.redirect("/admin");
   } catch (error) {
@@ -457,21 +482,84 @@ async function renderAdminDashboard(res, formError, statusCode) {
 
 async function closeExpiredAssets() {
   const db = getDb();
-  await db.run(
-    `UPDATE assets
-     SET status = 'closed'
+  const expiredAssets = await db.all(
+    `SELECT id
+     FROM assets
      WHERE status = 'open' AND end_at <= ?`,
     new Date().toISOString()
   );
+  if (!expiredAssets.length) {
+    return;
+  }
+
+  await db.run(
+    `UPDATE assets
+     SET status = 'closed'
+     WHERE id IN (${expiredAssets.map(() => "?").join(",")})`,
+    ...expiredAssets.map((asset) => asset.id)
+  );
+
+  await Promise.all(expiredAssets.map((asset) => broadcastAssetUpdate(asset.id)));
 }
 
 const PORT = process.env.PORT || 3000;
 
 async function start() {
   await initDb();
-  app.listen(PORT, () => {
+  httpServer.listen(PORT, () => {
     console.log(`Auction platform running on http://localhost:${PORT}`);
   });
+}
+
+function assetRoomName(assetId) {
+  return `asset:${assetId}`;
+}
+
+async function broadcastAssetUpdate(assetId) {
+  const db = getDb();
+  const asset = await db.get(
+    `SELECT id, title, current_price, status
+     FROM assets
+     WHERE id = ?`,
+    assetId
+  );
+  if (!asset) {
+    return;
+  }
+
+  const bidCountRow = await db.get(
+    `SELECT COUNT(*) AS bid_count
+     FROM bids
+     WHERE asset_id = ?`,
+    assetId
+  );
+  const latestBid = await db.get(
+    `SELECT b.amount, b.created_at, u.name AS bidder_name
+     FROM bids b
+     JOIN users u ON u.id = b.user_id
+     WHERE b.asset_id = ?
+     ORDER BY b.created_at DESC
+     LIMIT 1`,
+    assetId
+  );
+
+  const payload = {
+    assetId: asset.id,
+    title: asset.title,
+    currentPrice: Number(asset.current_price),
+    status: asset.status,
+    bidCount: bidCountRow ? Number(bidCountRow.bid_count) : 0,
+    latestBid: latestBid
+      ? {
+          amount: Number(latestBid.amount),
+          bidderName: latestBid.bidder_name,
+          createdAt: latestBid.created_at
+        }
+      : null
+  };
+
+  io.to(assetRoomName(assetId)).emit("asset:update", payload);
+  io.emit("asset:listing-update", payload);
 }
 
 if (require.main === module) {
@@ -481,4 +569,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { app, start };
+module.exports = { app, io, start };

@@ -124,6 +124,23 @@ main.container {
   color: #4b5563;
 }
 
+.live-note {
+  margin-top: 0.6rem;
+}
+
+.status-banner {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.4rem;
+  padding: 0.55rem 0.7rem;
+  margin-top: 0.8rem;
+}
+
+.status-banner.hidden {
+  display: none;
+}
+
 .subtle {
   color: #6b7280;
 }

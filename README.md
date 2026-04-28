@@ -14,6 +14,7 @@ An online auction platform where:
 - User bidding with validation (bid must be greater than current price)
 - User "My Bids" page
 - SQLite-backed persistence
+- Socket.IO real-time updates for bid and status changes
 
 ## Tech Stack
 
@@ -21,6 +22,7 @@ An online auction platform where:
 - EJS templates
 - SQLite (`sqlite3`, `sqlite`)
 - `express-session` + `connect-sqlite3`
+- `socket.io` for live bid broadcasts
 - `bcryptjs` for password hashing
 
 ## Setup

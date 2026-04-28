@@ -5,7 +5,7 @@
   <p>Browse open and closed auction assets.</p>
 </section>
 
-<div class="grid">
+<div class="grid" data-realtime-root data-mode="listing">
   <% if (!assets.length) { %>
     <article class="card">
       <p>No assets available yet.</p>
@@ -13,10 +13,13 @@
   <% } %>
 
   <% assets.forEach((asset) => { %>
-    <article class="card">
+    <article class="card" data-asset-card="<%= asset.id %>">
       <div class="card-header">
         <h2><%= asset.title %></h2>
-        <span class="badge <%= asset.status === 'open' ? 'badge-open' : 'badge-closed' %>">
+        <span
+          data-asset-status-badge
+          class="badge <%= asset.status === 'open' ? 'badge-open' : 'badge-closed' %>"
+        >
           <%= asset.status.toUpperCase() %>
         </span>
       </div>
@@ -24,7 +27,7 @@
       <dl class="detail-list">
         <div>
           <dt>Current Price</dt>
-          <dd>$<%= Number(asset.current_price).toFixed(2) %></dd>
+          <dd data-asset-price>$<%= Number(asset.current_price).toFixed(2) %></dd>
         </div>
         <div>
           <dt>Start Price</dt>
@@ -40,12 +43,15 @@
         </div>
         <div>
           <dt>Bids</dt>
-          <dd><%= asset.bid_count %></dd>
+          <dd data-asset-bid-count><%= asset.bid_count %></dd>
         </div>
       </dl>
       <a class="btn" href="/assets/<%= asset.id %>">View Auction</a>
     </article>
   <% }) %>
 </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/realtime.js"></script>
 
 <%- include("partials/footer") %>
