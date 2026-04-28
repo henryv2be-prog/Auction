@@ -311,7 +311,12 @@ app.get("/assets", async (req, res, next) => {
        LIMIT 18`
     );
 
-    return res.render("index", { title: "Assets", auctions, assets });
+    return res.render("index", {
+      title: "Assets",
+      auctions,
+      assets,
+      isSingleAuctionPage: false
+    });
   } catch (error) {
     return next(error);
   }
@@ -364,7 +369,8 @@ app.get("/auctions/:id", async (req, res, next) => {
     return res.render("index", {
       title: auction.name,
       auctions: relatedAuctions,
-      assets
+      assets,
+      isSingleAuctionPage: true
     });
   } catch (error) {
     return next(error);

@@ -1,8 +1,12 @@
 <%- include("partials/header", { title, user, notice, formError: null }) %>
 
 <section class="page-header">
-  <h1>Live Auctions</h1>
-  <p>Browse active auctions and available assets.</p>
+  <h1><%= title %></h1>
+  <% if (isSingleAuctionPage) { %>
+    <p>Browse assets in this auction and place bids while it is active.</p>
+  <% } else { %>
+    <p>Browse active auctions and available assets.</p>
+  <% } %>
 </section>
 
 <div class="grid">
@@ -32,7 +36,11 @@
           <dd><%= auction.asset_count %></dd>
         </div>
       </dl>
-      <a class="btn" href="/auctions/<%= auction.id %>">View Auction</a>
+      <% if (!isSingleAuctionPage) { %>
+        <a class="btn" href="/auctions/<%= auction.id %>">View Auction</a>
+      <% } else { %>
+        <a class="btn btn-secondary" href="/assets">All Auctions</a>
+      <% } %>
     </article>
   <% }) %>
 </div>
@@ -84,7 +92,7 @@
   <% }) %>
 </div>
 
-<script src="/socket.io/socket.io.js"></script>
-<script src="/realtime.js"></script>
+<script src="/socket.io/socket.io.js?v=2"></script>
+<script src="/realtime.js?v=2"></script>
 
 <%- include("partials/footer") %>
