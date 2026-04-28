@@ -76,7 +76,13 @@
             writeStoredVersion(cacheKey, cacheVersion);
             if (!hasCurrentVersionTag) {
               url.searchParams.set("cv", cacheVersion);
-              window.location.replace(url.toString());
+              // Full reload jumps scroll to top and breaks in-page browsing; if localStorage
+              // already matches this deploy, only sync the URL without navigating.
+              if (previousVersion === cacheVersion) {
+                window.history.replaceState(null, "", url.toString());
+              } else {
+                window.location.replace(url.toString());
+              }
             }
           });
           return;
