@@ -2,97 +2,75 @@
 
 <section class="page-header">
   <h1><%= title %></h1>
-  <% if (isSingleAuctionPage) { %>
-    <p>Browse assets in this auction and place bids while it is active.</p>
-  <% } else { %>
-    <p>Browse active auctions and available assets.</p>
-  <% } %>
+  <p>Browse the auction catalogue. Pick an auction to see the items up for bid.</p>
 </section>
 
-<div class="grid">
-  <% if (!auctions.length) { %>
-    <article class="card">
-      <h2>No auctions available</h2>
-      <p class="muted">New auctions will appear here once published by the admin team.</p>
-    </article>
-  <% } %>
-
-  <% auctions.forEach((auction) => { %>
-    <article class="card">
-      <div class="card-header">
-        <h2><%= auction.name %></h2>
-        <span class="badge <%= auction.status === 'open' ? 'badge-open' : 'badge-closed' %>">
-          <%= auction.status.toUpperCase() %>
-        </span>
+<%
+  function renderAuctionGroup(heading, list, emptyText, ctaLabel) {
+%>
+  <section class="section auction-group">
+    <div class="auction-group-header">
+      <h2><%= heading %></h2>
+      <span class="auction-group-count"><%= list.length %></span>
+    </div>
+    <% if (!list.length) { %>
+      <p class="muted"><%= emptyText %></p>
+    <% } else { %>
+      <div class="grid">
+        <% list.forEach((auction) => { %>
+          <article class="card auction-card">
+            <div class="card-header">
+              <h3><%= auction.name %></h3>
+              <span class="badge <%= auction.status === 'open' ? 'badge-open' : 'badge-closed' %>">
+                <%= (auction.status || '').toUpperCase() %>
+              </span>
+            </div>
+            <p class="muted"><%= auction.description || "No description provided." %></p>
+            <dl class="detail-list">
+              <div>
+                <dt>Starts</dt>
+                <dd><%= new Date(auction.start_at).toLocaleString() %></dd>
+              </div>
+              <div>
+                <dt>Ends</dt>
+                <dd><%= new Date(auction.end_at).toLocaleString() %></dd>
+              </div>
+              <div>
+                <dt>Items</dt>
+                <dd><%= auction.asset_count %></dd>
+              </div>
+            </dl>
+            <a class="btn" href="/auctions/<%= auction.id %>"><%= ctaLabel %></a>
+          </article>
+        <% }) %>
       </div>
-      <p class="muted"><%= auction.description || "No description provided." %></p>
-      <dl class="detail-list">
-        <div>
-          <dt>Auction Date</dt>
-          <dd><%= new Date(auction.auction_date).toLocaleString() %></dd>
-        </div>
-        <div>
-          <dt>Total Assets</dt>
-          <dd><%= auction.asset_count %></dd>
-        </div>
-      </dl>
-      <% if (!isSingleAuctionPage) { %>
-        <a class="btn" href="/auctions/<%= auction.id %>">View Auction</a>
-      <% } else { %>
-        <a class="btn btn-secondary" href="/assets">All Auctions</a>
-      <% } %>
-    </article>
-  <% }) %>
-</div>
+    <% } %>
+  </section>
+<% } %>
 
-<h2 class="section">Featured Assets</h2>
-<div class="grid" data-realtime-root data-mode="listing">
-  <% if (!assets.length) { %>
-    <article class="card">
-      <p>No assets available yet.</p>
-    </article>
-  <% } %>
+<%
+  renderAuctionGroup(
+    "Live auctions",
+    liveAuctions,
+    "No auctions are currently live. Check back soon.",
+    "View items & bid"
+  );
 
-  <% assets.forEach((asset) => { %>
-    <article class="card" data-asset-card="<%= asset.id %>">
-      <div class="card-header">
-        <h2><%= asset.title %></h2>
-        <span
-          data-asset-status-badge
-          class="badge <%= asset.status === 'open' ? 'badge-open' : 'badge-closed' %>"
-        >
-          <%= asset.status.toUpperCase() %>
-        </span>
-      </div>
-      <p class="muted"><%= asset.description %></p>
-      <dl class="detail-list">
-        <div>
-          <dt>Current Price</dt>
-          <dd data-asset-price><%= formatCurrency(asset.current_price) %></dd>
-        </div>
-        <div>
-          <dt>Start Price</dt>
-          <dd><%= formatCurrency(asset.start_price) %></dd>
-        </div>
-        <div>
-          <dt>Seller</dt>
-          <dd><%= asset.seller_name %></dd>
-        </div>
-        <div>
-          <dt>Ends</dt>
-          <dd><%= new Date(asset.end_at).toLocaleString() %></dd>
-        </div>
-        <div>
-          <dt>Bids</dt>
-          <dd data-asset-bid-count><%= asset.bid_count %></dd>
-        </div>
-      </dl>
-      <a class="btn" href="/assets/<%= asset.id %>">View Auction</a>
-    </article>
-  <% }) %>
-</div>
+  renderAuctionGroup(
+    "Upcoming auctions",
+    upcomingAuctions,
+    "No upcoming auctions scheduled.",
+    "Preview"
+  );
 
-<script src="/socket.io/socket.io.js?v=<%= assetVersion %>"></script>
-<script src="/realtime.js?v=<%= assetVersion %>"></script>
+  if (pastAuctions && pastAuctions.length) {
+    renderAuctionGroup(
+      "Past auctions",
+      pastAuctions,
+      "No past auctions yet.",
+      "View results"
+    );
+  }
+%>
 
 <%- include("partials/footer") %>

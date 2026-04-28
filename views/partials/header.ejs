@@ -92,10 +92,10 @@
     <div class="container header-row">
       <a class="brand" href="/">Auction Platform</a>
       <nav class="nav-links">
+        <a href="/assets">Auctions</a>
         <% if (user) { %>
-          <a href="/assets">Assets</a>
           <% if (user.role === "admin") { %>
-            <a href="/admin/auctions">Auctions</a>
+            <a href="/admin/auctions">Manage</a>
             <a href="/admin">Admin</a>
           <% } else { %>
             <a href="/my-bids">My Bids</a>

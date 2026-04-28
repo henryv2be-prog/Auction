@@ -1,0 +1,94 @@
+<%- include("partials/header", { title, user, notice, formError: null }) %>
+
+<nav class="breadcrumbs">
+  <a href="/assets">All auctions</a>
+  <span aria-hidden="true">›</span>
+  <span><%= auction.name %></span>
+</nav>
+
+<section class="page-header auction-header">
+  <div class="auction-header-row">
+    <h1><%= auction.name %></h1>
+    <span class="badge <%= auction.status === 'open' ? 'badge-open' : 'badge-closed' %>">
+      <%= (auction.status || '').toUpperCase() %>
+    </span>
+  </div>
+  <% if (auction.description) { %>
+    <p class="muted"><%= auction.description %></p>
+  <% } %>
+  <dl class="auction-meta-row">
+    <div>
+      <dt>Starts</dt>
+      <dd><%= new Date(auction.start_at).toLocaleString() %></dd>
+    </div>
+    <div>
+      <dt>Ends</dt>
+      <dd><%= new Date(auction.end_at).toLocaleString() %></dd>
+    </div>
+    <div>
+      <dt>Items</dt>
+      <dd><%= assets.length %></dd>
+    </div>
+  </dl>
+</section>
+
+<section class="section">
+  <h2>Items in this auction</h2>
+  <% if (!assets.length) { %>
+    <p class="muted">No items have been listed in this auction yet.</p>
+  <% } else { %>
+    <div class="grid" data-realtime-root data-mode="listing">
+      <% assets.forEach((asset) => { %>
+        <article class="card asset-listing-card" data-asset-card="<%= asset.id %>">
+          <% if (asset.thumbnail) { %>
+            <a class="asset-thumb-link" href="/assets/<%= asset.id %>" aria-label="View <%= asset.title %>">
+              <% if (asset.thumbnail.media_type === "image") { %>
+                <img class="asset-thumb" src="<%= asset.thumbnail.file_path %>" alt="<%= asset.title %>" loading="lazy" />
+              <% } else { %>
+                <video class="asset-thumb" preload="metadata" muted playsinline>
+                  <source src="<%= asset.thumbnail.file_path %>" />
+                </video>
+              <% } %>
+            </a>
+          <% } %>
+          <div class="card-header">
+            <h3><a href="/assets/<%= asset.id %>"><%= asset.title %></a></h3>
+            <span
+              data-asset-status-badge
+              class="badge <%= asset.status === 'open' ? 'badge-open' : 'badge-closed' %>"
+            >
+              <%= (asset.status || '').toUpperCase() %>
+            </span>
+          </div>
+          <p class="muted asset-listing-description"><%= asset.description %></p>
+          <dl class="detail-list">
+            <div>
+              <dt>Current price</dt>
+              <dd data-asset-price><%= formatCurrency(asset.current_price) %></dd>
+            </div>
+            <div>
+              <dt>Start price</dt>
+              <dd><%= formatCurrency(asset.start_price) %></dd>
+            </div>
+            <div>
+              <dt>Bids</dt>
+              <dd data-asset-bid-count><%= asset.bid_count %></dd>
+            </div>
+            <div>
+              <dt>Closes</dt>
+              <dd><%= new Date(asset.end_at).toLocaleString() %></dd>
+            </div>
+          </dl>
+          <a class="btn" href="/assets/<%= asset.id %>">
+            <% if (asset.status === "open") { %>View &amp; bid<% } else { %>View results<% } %>
+          </a>
+        </article>
+      <% }) %>
+    </div>
+  <% } %>
+</section>
+
+<script src="/socket.io/socket.io.js?v=<%= assetVersion %>"></script>
+<script src="/realtime.js?v=<%= assetVersion %>"></script>
+
+<%- include("partials/footer") %>

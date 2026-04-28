@@ -81,8 +81,157 @@ main.container {
   margin-bottom: 1rem;
 }
 
+.page-header h1 {
+  margin: 0 0 0.35rem;
+}
+
+.page-header p {
+  margin: 0;
+  color: #4b5563;
+}
+
 .hero {
   margin-bottom: 1rem;
+}
+
+.breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.85rem;
+  color: #6b7280;
+  font-size: 0.92rem;
+}
+
+.breadcrumbs a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.breadcrumbs a:hover {
+  text-decoration: underline;
+}
+
+.auction-group {
+  margin-top: 1.6rem;
+}
+
+.auction-group-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+.auction-group-header h2 {
+  margin: 0;
+}
+
+.auction-group-count {
+  background: #e5e7eb;
+  color: #374151;
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.auction-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.auction-card .btn {
+  margin-top: auto;
+  align-self: flex-start;
+}
+
+.auction-card h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.auction-header {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.auction-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.auction-header-row h1 {
+  margin: 0;
+}
+
+.auction-meta-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.auction-meta-row dt {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.auction-meta-row dd {
+  margin: 0.1rem 0 0;
+  font-weight: 600;
+}
+
+.asset-listing-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.asset-listing-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.asset-listing-card h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.asset-listing-card h3 a:hover {
+  text-decoration: underline;
+}
+
+.asset-listing-description {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+
+.asset-listing-card .btn {
+  margin-top: auto;
+  align-self: flex-start;
+}
+
+.asset-thumb-link {
+  display: block;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: #0f172a;
+  aspect-ratio: 16 / 10;
+}
+
+.asset-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .grid {

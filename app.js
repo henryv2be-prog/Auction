@@ -105,7 +105,7 @@ function adminAssetUpload(req, res, next) {
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.locals.formatCurrency = formatCurrency;
-app.locals.assetVersion = process.env.ASSET_VERSION || "20260428f";
+app.locals.assetVersion = process.env.ASSET_VERSION || "20260428g";
 
 const staticAssetOptions = {
   etag: false,
@@ -321,36 +321,48 @@ app.post("/logout", (req, res) => {
 app.get("/assets", async (req, res, next) => {
   try {
     const db = getDb();
+    const nowIso = new Date().toISOString();
     const auctions = await db.all(
       `SELECT a.id,
               a.title AS name,
               a.description,
               a.start_at,
               a.end_at,
-              a.start_at AS auction_date,
               a.status,
               (SELECT COUNT(*) FROM assets x WHERE x.auction_id = a.id) AS asset_count
        FROM auctions a
-       ORDER BY CASE a.status WHEN 'open' THEN 0 ELSE 1 END, a.start_at DESC`
-    );
-    const assets = await db.all(
-      `SELECT a.*,
-              auc.title AS auction_title,
-              u.name AS seller_name,
-              (SELECT COUNT(*) FROM bids b WHERE b.asset_id = a.id) AS bid_count,
-              (SELECT MAX(amount) FROM bids b WHERE b.asset_id = a.id) AS top_bid
-       FROM assets a
-       JOIN auctions auc ON auc.id = a.auction_id
-       JOIN users u ON u.id = a.created_by
-       ORDER BY CASE a.status WHEN 'open' THEN 0 ELSE 1 END, a.end_at ASC
-       LIMIT 18`
+       ORDER BY a.start_at ASC`
     );
 
+    const liveAuctions = [];
+    const upcomingAuctions = [];
+    const pastAuctions = [];
+    for (const auction of auctions) {
+      const startsAt = auction.start_at ? new Date(auction.start_at).getTime() : NaN;
+      const endsAt = auction.end_at ? new Date(auction.end_at).getTime() : NaN;
+      const now = Date.now();
+      const hasStarted = Number.isFinite(startsAt) ? startsAt <= now : true;
+      const hasEnded = Number.isFinite(endsAt) ? endsAt <= now : false;
+
+      if (auction.status === "closed" || hasEnded) {
+        pastAuctions.push(auction);
+      } else if (auction.status === "open" && hasStarted) {
+        liveAuctions.push(auction);
+      } else {
+        upcomingAuctions.push(auction);
+      }
+    }
+
+    liveAuctions.sort((a, b) => new Date(a.end_at) - new Date(b.end_at));
+    upcomingAuctions.sort((a, b) => new Date(a.start_at) - new Date(b.start_at));
+    pastAuctions.sort((a, b) => new Date(b.end_at) - new Date(a.end_at));
+
     return res.render("index", {
-      title: "Assets",
-      auctions,
-      assets,
-      isSingleAuctionPage: false
+      title: "Auctions",
+      liveAuctions,
+      upcomingAuctions,
+      pastAuctions,
+      currentTime: nowIso
     });
   } catch (error) {
     return next(error);
@@ -361,6 +373,13 @@ app.get("/auctions/:id", async (req, res, next) => {
   try {
     const db = getDb();
     const auctionId = Number(req.params.id);
+    if (!Number.isInteger(auctionId) || auctionId <= 0) {
+      return res.status(404).render("error", {
+        title: "Not Found",
+        message: "Auction not found."
+      });
+    }
+
     const auction = await db.get(
       `SELECT id, title AS name, description, start_at, end_at, status
        FROM auctions
@@ -387,25 +406,34 @@ app.get("/auctions/:id", async (req, res, next) => {
       auctionId
     );
 
-    const relatedAuctions = await db.all(
-      `SELECT id,
-              title AS name,
-              description,
-              start_at,
-              end_at,
-              start_at AS auction_date,
-              status,
-              (SELECT COUNT(*) FROM assets x WHERE x.auction_id = auctions.id) AS asset_count
-       FROM auctions
-       WHERE id = ?`,
-      auctionId
-    );
+    const assetIds = assets.map((asset) => asset.id);
+    const thumbnailsByAssetId = new Map();
+    if (assetIds.length) {
+      const placeholders = assetIds.map(() => "?").join(",");
+      const thumbnailRows = await db.all(
+        `SELECT asset_id, media_type, file_path, original_name
+         FROM asset_media
+         WHERE id IN (
+           SELECT MIN(id) FROM asset_media
+           WHERE asset_id IN (${placeholders})
+           GROUP BY asset_id
+         )`,
+        ...assetIds
+      );
+      for (const row of thumbnailRows) {
+        thumbnailsByAssetId.set(row.asset_id, mapMediaForView(row));
+      }
+    }
 
-    return res.render("index", {
+    const assetsWithThumbnail = assets.map((asset) => ({
+      ...asset,
+      thumbnail: thumbnailsByAssetId.get(asset.id) || null
+    }));
+
+    return res.render("auction-detail", {
       title: auction.name,
-      auctions: relatedAuctions,
-      assets,
-      isSingleAuctionPage: true
+      auction,
+      assets: assetsWithThumbnail
     });
   } catch (error) {
     return next(error);
