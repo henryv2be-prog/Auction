@@ -8,11 +8,13 @@
   const slides = Array.from(slider.querySelectorAll("[data-media-slide]"));
   const previousButton = slider.querySelector("[data-media-prev]");
   const nextButton = slider.querySelector("[data-media-next]");
-  const dotsContainer = slider.querySelector(".carousel-dots");
+  const dots = Array.from(slider.querySelectorAll("[data-media-dot]"));
+  const counter = slider.querySelector("[data-media-counter]");
+  const caption = slider.querySelector("[data-media-caption]");
   const lightbox = slider.querySelector("[data-media-overlay]");
   const lightboxBody = slider.querySelector(".media-modal-media");
   const lightboxCaption = slider.querySelector("[data-overlay-title]");
-  const lightboxClose = slider.querySelector("[data-lightbox-close]");
+  const lightboxClose = slider.querySelector("[data-overlay-close]");
   const lightboxPrev = slider.querySelector("[data-overlay-prev]");
   const lightboxNext = slider.querySelector("[data-overlay-next]");
   let currentIndex = 0;
@@ -20,15 +22,32 @@
   let touchStartX = 0;
   let touchStartY = 0;
   let isSwiping = false;
-  const dots = [];
 
   if (!track || !slides.length) {
     return;
   }
 
+  function getSlideMeta(index) {
+    const slide = slides[index];
+    return {
+      type: slide.dataset.mediaType || "image",
+      src: slide.dataset.mediaSrc || "",
+      title: slide.dataset.mediaTitle || `Media ${index + 1}`
+    };
+  }
+
   function setIndex(index) {
     currentIndex = Math.max(0, Math.min(index, slides.length - 1));
     track.style.transform = `translateX(-${currentIndex * 100}%)`;
+
+    if (counter) {
+      counter.textContent = `${currentIndex + 1} / ${slides.length}`;
+    }
+
+    if (caption) {
+      caption.textContent = getSlideMeta(currentIndex).title;
+    }
+
     dots.forEach((dot, dotIndex) => {
       const active = dotIndex === currentIndex;
       dot.classList.toggle("active", active);
@@ -47,29 +66,26 @@
     }
 
     lightboxIndex = Math.max(0, Math.min(index, slides.length - 1));
-    const slide = slides[lightboxIndex];
-    const mediaType = slide.dataset.mediaType;
-    const source = slide.dataset.mediaSrc;
-    const name = slide.dataset.mediaTitle || "Media";
+    const media = getSlideMeta(lightboxIndex);
 
     lightboxBody.innerHTML = "";
-    if (mediaType === "video") {
+    if (media.type === "video") {
       const video = document.createElement("video");
       video.controls = true;
       video.autoplay = true;
       video.preload = "metadata";
       const sourceEl = document.createElement("source");
-      sourceEl.src = source;
+      sourceEl.src = media.src;
       video.appendChild(sourceEl);
       lightboxBody.appendChild(video);
     } else {
       const img = document.createElement("img");
-      img.src = source;
-      img.alt = name;
+      img.src = media.src;
+      img.alt = media.title;
       lightboxBody.appendChild(img);
     }
 
-    lightboxCaption.textContent = `${lightboxIndex + 1} / ${slides.length} - ${name}`;
+    lightboxCaption.textContent = `${lightboxIndex + 1} / ${slides.length} - ${media.title}`;
     lightbox.hidden = false;
     lightbox.classList.add("open");
     document.body.classList.add("overlay-open");
@@ -106,21 +122,19 @@
   previousButton?.addEventListener("click", () => move(-1));
   nextButton?.addEventListener("click", () => move(1));
 
-  if (dotsContainer && slides.length > 1) {
-    slides.forEach((_, index) => {
-      const dot = document.createElement("button");
-      dot.type = "button";
-      dot.className = "carousel-dot";
-      dot.setAttribute("aria-label", `Go to slide ${index + 1}`);
-      dot.addEventListener("click", () => setIndex(index));
-      dotsContainer.appendChild(dot);
-      dots.push(dot);
-    });
-  }
+  dots.forEach((dot, index) => {
+    dot.addEventListener("click", () => setIndex(index));
+  });
 
   slides.forEach((slide, index) => {
     slide.addEventListener("click", () => {
       if (!isSwiping) {
+        openLightbox(index);
+      }
+    });
+    slide.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
         openLightbox(index);
       }
     });
