@@ -150,7 +150,7 @@ app.locals.formatCurrency = formatCurrency;
 app.locals.formatSastDateTime = formatSastDateTime;
 app.locals.formatForDatetimeLocalInput = formatForDatetimeLocalInput;
 app.locals.SAST_TIMEZONE = SAST_TIMEZONE;
-app.locals.assetVersion = process.env.ASSET_VERSION || "20260428l";
+app.locals.assetVersion = process.env.ASSET_VERSION || "20260428m";
 
 const staticAssetOptions = {
   etag: false,

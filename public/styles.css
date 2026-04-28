@@ -269,7 +269,7 @@ main.container {
   display: flex;
 }
 
-.nav-links a {
+.nav-links a:not(.btn) {
   display: flex;
   align-items: center;
   padding: var(--space-3) var(--space-2);
@@ -280,8 +280,8 @@ main.container {
   min-height: 44px;
 }
 
-.nav-links a:hover,
-.nav-links a:focus-visible {
+.nav-links a:not(.btn):hover,
+.nav-links a:not(.btn):focus-visible {
   background: rgba(255, 255, 255, 0.08);
   text-decoration: none;
   outline: none;
@@ -338,13 +338,13 @@ main.container {
     overflow: visible;
   }
 
-  .nav-links a {
+  .nav-links a:not(.btn) {
     padding: var(--space-2) var(--space-3);
     color: var(--color-header-muted);
     min-height: 0;
   }
 
-  .nav-links a:hover {
+  .nav-links a:not(.btn):hover {
     color: var(--color-header-text);
     background: transparent;
   }
