@@ -70,7 +70,21 @@ See `.env.example`:
 
 - `PORT`
 - `SESSION_SECRET`
+- `DATA_DIR` (default `/tmp/auction-platform`)
 - `DB_PATH`
+- `SESSION_DB_PATH`
 - `ADMIN_NAME`
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
+
+## Railway deployment notes
+
+For Railway or similar container platforms:
+
+1. Add a writable **Volume** (recommended path: `/data`)
+2. Set:
+   - `DATA_DIR=/data`
+   - optionally `DB_PATH=/data/auction.db`
+   - optionally `SESSION_DB_PATH=/data/sessions.sqlite`
+
+The app now creates the data directory automatically at startup.

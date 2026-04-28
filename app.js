@@ -7,6 +7,7 @@ const SQLiteStore = require("connect-sqlite3")(session);
 const bcrypt = require("bcryptjs");
 
 const { initDb, getDb } = require("./db");
+const { resolveSessionDbPath } = require("./storage");
 const { requireAuth, requireRole } = require("./middleware/auth");
 
 const app = express();
@@ -19,10 +20,13 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.use(
   session({
-    store: new SQLiteStore({
-      db: "sessions.sqlite",
-      dir: __dirname
-    }),
+    store: (() => {
+      const sessionDbPath = resolveSessionDbPath();
+      return new SQLiteStore({
+        db: path.basename(sessionDbPath),
+        dir: path.dirname(sessionDbPath)
+      });
+    })(),
     secret: process.env.SESSION_SECRET || "change-me-in-production",
     resave: false,
     saveUninitialized: false,

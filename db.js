@@ -1,12 +1,12 @@
-const path = require("path");
 const sqlite3 = require("sqlite3");
 const { open } = require("sqlite");
 const bcrypt = require("bcryptjs");
+const { resolveDbPath } = require("./storage");
 
 let db;
 
 async function initDb() {
-  const filename = process.env.DB_PATH || path.join(__dirname, "auction.db");
+  const filename = resolveDbPath();
 
   db = await open({
     filename,
