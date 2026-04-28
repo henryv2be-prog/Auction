@@ -10,7 +10,7 @@
   <form action="/admin/auctions" method="post" class="grid-form">
     <label>
       Auction name
-      <input type="text" name="title" required />
+      <input type="text" name="name" required />
     </label>
     <label>
       Status
@@ -58,7 +58,7 @@
           <% auctions.forEach((auction) => { %>
             <tr>
               <td>
-                <strong><%= auction.title %></strong>
+                <strong><%= auction.name %></strong>
                 <% if (auction.description) { %>
                   <div class="subtle"><%= auction.description %></div>
                 <% } %>

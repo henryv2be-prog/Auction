@@ -1,7 +1,7 @@
 <%- include("partials/header", { title, user, notice, formError }) %>
 
 <section class="hero">
-  <h1><%= auction.title %></h1>
+  <h1><%= auction.name %></h1>
   <p class="muted"><%= auction.description || "No description provided." %></p>
   <p class="muted">
     Status: <strong><%= auction.status.toUpperCase() %></strong> |
@@ -15,7 +15,7 @@
   <form action="/admin/auctions/<%= auction.id %>/edit" method="post" class="grid-form">
     <label>
       Auction name
-      <input type="text" name="name" value="<%= auction.title %>" required />
+      <input type="text" name="name" value="<%= auction.name %>" required />
     </label>
     <label>
       Status
