@@ -59,6 +59,12 @@ function buildUploadErrorMessage(error) {
   return error && error.message ? error.message : "Unable to upload media files.";
 }
 
+function applyNoStoreHeaders(res) {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
+}
+
 const randFormatter = new Intl.NumberFormat("en-ZA", {
   style: "currency",
   currency: "ZAR"
@@ -95,19 +101,29 @@ function adminAssetUpload(req, res, next) {
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.locals.formatCurrency = formatCurrency;
+app.locals.assetVersion = process.env.ASSET_VERSION || "20260428d";
+
+const staticAssetOptions = {
+  etag: false,
+  lastModified: false,
+  setHeaders(res, filePath) {
+    if (/\.(css|js|mjs|map)$/i.test(filePath)) {
+      applyNoStoreHeaders(res);
+    }
+  }
+};
+
+const uploadStaticOptions = {
+  etag: false,
+  lastModified: false,
+  setHeaders(res) {
+    applyNoStoreHeaders(res);
+  }
+};
 
 app.use(express.urlencoded({ extended: false }));
-app.use(express.static(path.join(__dirname, "public")));
-app.use("/uploads", express.static(uploadsDir));
-app.use((req, res, next) => {
-  // Force fresh asset fetches on mobile browsers after rapid UI iterations.
-  if (/\.(css|js)$/.test(req.path)) {
-    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-    res.set("Pragma", "no-cache");
-    res.set("Expires", "0");
-  }
-  next();
-});
+app.use(express.static(path.join(__dirname, "public"), staticAssetOptions));
+app.use("/uploads", express.static(uploadsDir, uploadStaticOptions));
 
 io.on("connection", (socket) => {
   socket.on("asset:subscribe", (assetId) => {
