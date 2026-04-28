@@ -102,10 +102,46 @@ function adminAssetUpload(req, res, next) {
   upload.array("media", maxMediaFiles)(req, res, next);
 }
 
+function wantsJson(req) {
+  if (!req) {
+    return false;
+  }
+  if (req.xhr) {
+    return true;
+  }
+  const requestedWith = req.get("X-Requested-With");
+  if (requestedWith && requestedWith.toLowerCase() === "xmlhttprequest") {
+    return true;
+  }
+  const accept = req.get("Accept") || "";
+  return accept.indexOf("application/json") !== -1 && accept.indexOf("text/html") === -1;
+}
+
+function jsonOk(res, payload) {
+  return res.status(200).json(Object.assign({ ok: true }, payload || {}));
+}
+
+function jsonError(res, statusCode, message) {
+  return res.status(statusCode).json({ ok: false, error: message });
+}
+
+function isClientAbortError(error) {
+  if (!error) {
+    return false;
+  }
+  if (error.code === "ECONNRESET" || error.code === "ECONNABORTED") {
+    return true;
+  }
+  if (error.type === "request.aborted") {
+    return true;
+  }
+  return error.message === "Request aborted" || error.message === "aborted";
+}
+
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.locals.formatCurrency = formatCurrency;
-app.locals.assetVersion = process.env.ASSET_VERSION || "20260428i";
+app.locals.assetVersion = process.env.ASSET_VERSION || "20260428j";
 
 const staticAssetOptions = {
   etag: false,
@@ -700,11 +736,15 @@ app.post(
   async (req, res, next) => {
     const auctionId = Number(req.params.id);
     const uploadedFiles = req.files || [];
+    const wantJson = wantsJson(req);
     const db = getDb();
     try {
       const auction = await getAuctionById(auctionId);
       if (!auction) {
         await deleteFilesIfPresent(uploadedFiles);
+        if (wantJson) {
+          return jsonError(res, 404, "Auction not found.");
+        }
         return res.status(404).render("error", {
           title: "Not Found",
           message: "Auction not found."
@@ -736,12 +776,34 @@ app.post(
         await broadcastAssetUpdate(createdAssetId);
       }
 
+      const redirectTo = `/admin/auctions/${auctionId}/edit`;
       req.session.notice = "Asset added to auction.";
-      return res.redirect(`/admin/auctions/${auctionId}/edit`);
+      if (wantJson) {
+        return jsonOk(res, {
+          message: "Asset added to auction.",
+          redirect: redirectTo,
+          assetId: createdAssetId
+        });
+      }
+      return res.redirect(redirectTo);
     } catch (error) {
       await deleteFilesIfPresent(uploadedFiles);
       if (error instanceof ValidationError) {
+        if (wantJson) {
+          return jsonError(res, 400, error.message);
+        }
         return renderAdminAuctionDetailWithError(res, auctionId, error.message, 400);
+      }
+      if (wantJson && !res.headersSent) {
+        const message =
+          error instanceof multer.MulterError
+            ? buildUploadErrorMessage(error)
+            : "An unexpected error occurred while saving the asset.";
+        const statusCode = error instanceof multer.MulterError ? 400 : 500;
+        if (!(error instanceof multer.MulterError)) {
+          console.error(error);
+        }
+        return jsonError(res, statusCode, message);
       }
       return next(error);
     }
@@ -775,11 +837,15 @@ app.get("/admin/assets/:id/edit", requireRole("admin"), async (req, res, next) =
 app.post("/admin/assets/:id/edit", requireRole("admin"), adminAssetUpload, async (req, res, next) => {
   const assetId = Number(req.params.id);
   const uploadedFiles = req.files || [];
+  const wantJson = wantsJson(req);
   const db = getDb();
   try {
     const asset = await getAssetById(assetId);
     if (!asset) {
       await deleteFilesIfPresent(uploadedFiles);
+      if (wantJson) {
+        return jsonError(res, 404, "Asset not found.");
+      }
       return res.status(404).render("error", {
         title: "Not Found",
         message: "Asset not found."
@@ -814,12 +880,30 @@ app.post("/admin/assets/:id/edit", requireRole("admin"), adminAssetUpload, async
     });
 
     await broadcastAssetUpdate(assetId);
+    const redirectTo = `/admin/assets/${assetId}/edit`;
     req.session.notice = "Asset updated.";
-    return res.redirect(`/admin/assets/${assetId}/edit`);
+    if (wantJson) {
+      return jsonOk(res, { message: "Asset updated.", redirect: redirectTo });
+    }
+    return res.redirect(redirectTo);
   } catch (error) {
     await deleteFilesIfPresent(uploadedFiles);
     if (error instanceof ValidationError) {
+      if (wantJson) {
+        return jsonError(res, 400, error.message);
+      }
       return renderAdminAssetEditWithError(res, assetId, error.message, 400);
+    }
+    if (wantJson && !res.headersSent) {
+      const message =
+        error instanceof multer.MulterError
+          ? buildUploadErrorMessage(error)
+          : "An unexpected error occurred while saving the asset.";
+      const statusCode = error instanceof multer.MulterError ? 400 : 500;
+      if (!(error instanceof multer.MulterError)) {
+        console.error(error);
+      }
+      return jsonError(res, statusCode, message);
     }
     return next(error);
   }
@@ -876,7 +960,21 @@ app.use((req, res) => {
 });
 
 app.use((error, req, res, next) => {
+  if (isClientAbortError(error)) {
+    if (!res.headersSent) {
+      try {
+        res.status(499).end();
+      } catch (closeError) {
+        // ignore: socket already closed
+      }
+    }
+    return;
+  }
+
   if (error instanceof multer.MulterError || error.message === "Only image and video files are allowed.") {
+    if (wantsJson(req)) {
+      return jsonError(res, 400, buildUploadErrorMessage(error));
+    }
     const auctionIdMatch = req.path.match(/^\/admin\/auctions\/(\d+)\/assets$/);
     if (auctionIdMatch) {
       const auctionId = Number(auctionIdMatch[1]);
@@ -891,6 +989,9 @@ app.use((error, req, res, next) => {
   }
 
   console.error(error);
+  if (wantsJson(req)) {
+    return jsonError(res, 500, "An unexpected error occurred.");
+  }
   res.status(500).render("error", {
     title: "Server Error",
     message: "An unexpected error occurred."

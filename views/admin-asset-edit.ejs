@@ -14,6 +14,7 @@
     action="/admin/assets/<%= asset.id %>/edit"
     enctype="multipart/form-data"
     class="grid-form"
+    data-upload-form
   >
     <label>
       Asset title
@@ -80,5 +81,7 @@
     </div>
   <% } %>
 </section>
+
+<script src="/upload-progress.js?v=<%= assetVersion %>"></script>
 
 <%- include("partials/footer") %>

@@ -1253,6 +1253,84 @@ body.overlay-open {
   color: var(--color-text-muted);
 }
 
+/* ---------- Upload progress UI ---------- */
+
+.upload-ui {
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.upload-ui[hidden] {
+  display: none;
+}
+
+.upload-status {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.upload-bar {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  background: var(--color-surface-alt);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.upload-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: inherit;
+  transition: width 0.18s ease;
+}
+
+.upload-bar-indeterminate .upload-bar-fill {
+  width: 40%;
+  animation: upload-indeterminate 1.2s ease-in-out infinite;
+}
+
+@keyframes upload-indeterminate {
+  0% {
+    transform: translateX(-100%);
+    width: 40%;
+  }
+  50% {
+    transform: translateX(50%);
+    width: 60%;
+  }
+  100% {
+    transform: translateX(220%);
+    width: 40%;
+  }
+}
+
+.upload-message {
+  margin: var(--space-2) 0 0;
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+  min-height: 1.2em;
+}
+
+.upload-ui-error .upload-status {
+  color: var(--color-danger);
+}
+
+.upload-ui-error .upload-message {
+  color: var(--color-danger);
+}
+
+.upload-ui-error .upload-bar-fill {
+  background: var(--color-danger);
+}
+
 /* ---------- Empty state utility ---------- */
 
 .empty-state {
