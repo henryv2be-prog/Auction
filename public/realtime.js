@@ -3,73 +3,93 @@
     return;
   }
 
-  const root = document.querySelector("[data-realtime-root]");
-  if (!root) {
+  var roots = document.querySelectorAll("[data-realtime-root]");
+  if (!roots.length) {
     return;
   }
 
-  const mode = root.dataset.mode;
-  const socket = io();
+  var modes = new Set();
+  roots.forEach(function (root) {
+    if (root.dataset.mode) {
+      modes.add(root.dataset.mode);
+    }
+  });
 
-  if (mode === "detail") {
-    const assetId = Number(root.dataset.assetId);
-    if (!Number.isInteger(assetId) || assetId <= 0) {
+  var detailRoot = null;
+  var detailAssetId = null;
+  roots.forEach(function (root) {
+    if (root.dataset.mode === "detail") {
+      detailRoot = root;
+      detailAssetId = Number(root.dataset.assetId);
+    }
+  });
+
+  var auctionDetailRoot = null;
+  var auctionDetailId = null;
+  roots.forEach(function (root) {
+    if (root.dataset.mode === "auction-detail") {
+      auctionDetailRoot = root;
+      auctionDetailId = Number(root.dataset.auctionId);
+    }
+  });
+
+  var socket = io();
+
+  if (modes.has("detail") && Number.isInteger(detailAssetId) && detailAssetId > 0) {
+    socket.emit("asset:subscribe", detailAssetId);
+    window.addEventListener("beforeunload", function () {
+      socket.emit("asset:unsubscribe", detailAssetId);
+    });
+
+    socket.on("asset:update", function (payload) {
+      if (!payload || payload.assetId !== detailAssetId) {
+        return;
+      }
+      applyDetailUpdate(detailRoot, payload);
+    });
+  }
+
+  socket.on("asset:listing-update", function (payload) {
+    if (!payload || !payload.assetId) {
       return;
     }
+    applyListingUpdate(payload);
+  });
 
-    socket.emit("asset:subscribe", assetId);
-    window.addEventListener("beforeunload", () => {
-      socket.emit("asset:unsubscribe", assetId);
+  socket.on("auction:update", function (payload) {
+    if (!payload || !payload.auctionId) {
+      return;
+    }
+    applyAuctionUpdate(payload, {
+      currentAuctionDetailId: auctionDetailId
     });
-
-    socket.on("asset:update", (payload) => {
-      if (!payload || payload.assetId !== assetId) {
-        return;
-      }
-      applyDetailUpdate(root, payload);
-    });
-
-    return;
-  }
-
-  if (mode === "listing") {
-    socket.on("asset:listing-update", (payload) => {
-      if (!payload || !payload.assetId) {
-        return;
-      }
-      applyListingUpdate(payload);
-    });
-    return;
-  }
-
-  socket.disconnect();
+  });
 })();
 
 function applyDetailUpdate(root, payload) {
-  const currentPriceEl = root.querySelector("[data-current-price]");
+  var currentPriceEl = root.querySelector("[data-current-price]");
   if (currentPriceEl) {
     currentPriceEl.textContent = formatCurrency(payload.currentPrice);
   }
 
-  const minimumBidHintEl = root.querySelector("[data-minimum-bid]");
+  var minimumBidHintEl = root.querySelector("[data-minimum-bid]");
   if (minimumBidHintEl) {
     minimumBidHintEl.textContent = formatCurrency(payload.currentPrice);
   }
 
-  const statusPillEl = root.querySelector("[data-asset-status-pill]");
+  var statusPillEl = root.querySelector("[data-asset-status-pill]");
   if (statusPillEl) {
     setStatusPill(statusPillEl, payload.status);
   }
 
-  const bidTableBodyEl = root.querySelector("[data-bids-body]");
-  const bidEmptyEl = root.querySelector("[data-bids-empty]");
+  var bidTableBodyEl = root.querySelector("[data-bids-body]");
+  var bidEmptyEl = root.querySelector("[data-bids-empty]");
   if (payload.latestBid && bidTableBodyEl) {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td data-label="Bidder">${escapeHtml(payload.latestBid.bidderName)}</td>
-      <td data-label="Amount">${formatCurrency(payload.latestBid.amount)}</td>
-      <td data-label="Time">${new Date(payload.latestBid.createdAt).toLocaleString()}</td>
-    `;
+    var row = document.createElement("tr");
+    row.innerHTML =
+      '<td data-label="Bidder">' + escapeHtml(payload.latestBid.bidderName) + "</td>" +
+      '<td data-label="Amount">' + formatCurrency(payload.latestBid.amount) + "</td>" +
+      '<td data-label="Time">' + new Date(payload.latestBid.createdAt).toLocaleString() + "</td>";
     bidTableBodyEl.prepend(row);
     while (bidTableBodyEl.children.length > 20) {
       bidTableBodyEl.removeChild(bidTableBodyEl.lastElementChild);
@@ -80,40 +100,184 @@ function applyDetailUpdate(root, payload) {
   }
 
   if (payload.status !== "open") {
-    const formEl = root.querySelector("[data-bid-form]");
+    var formEl = root.querySelector("[data-bid-form]");
     if (formEl) {
-      const closedNote = document.createElement("p");
+      var closedNote = document.createElement("p");
       closedNote.textContent = "This auction has closed.";
       formEl.replaceWith(closedNote);
     }
   }
 
-  const liveNoteEl = root.querySelector("[data-live-note]");
+  var liveNoteEl = root.querySelector("[data-live-note]");
   if (liveNoteEl) {
     liveNoteEl.textContent = "Live update: auction state changed just now.";
   }
 }
 
 function applyListingUpdate(payload) {
-  const card = document.querySelector(`[data-asset-card="${payload.assetId}"]`);
+  var card = document.querySelector('[data-asset-card="' + payload.assetId + '"]');
   if (!card) {
     return;
   }
 
-  const cardPriceEl = card.querySelector("[data-asset-price]");
+  var cardPriceEl = card.querySelector("[data-asset-price]");
   if (cardPriceEl) {
     cardPriceEl.textContent = formatCurrency(payload.currentPrice);
   }
 
-  const bidCountEl = card.querySelector("[data-asset-bid-count]");
+  var bidCountEl = card.querySelector("[data-asset-bid-count]");
   if (bidCountEl) {
     bidCountEl.textContent = String(payload.bidCount);
   }
 
-  const badgeEl = card.querySelector("[data-asset-status-badge]");
+  var badgeEl = card.querySelector("[data-asset-status-badge]");
   if (badgeEl) {
     setStatusBadge(badgeEl, payload.status);
   }
+}
+
+function applyAuctionUpdate(payload, context) {
+  var card = document.querySelector('[data-auction-card="' + payload.auctionId + '"]');
+  var detailRoot = document.querySelector('[data-mode="auction-detail"][data-auction-id="' + payload.auctionId + '"]');
+
+  var elementsToPatch = [];
+  if (card) elementsToPatch.push(card);
+  if (detailRoot) elementsToPatch.push(detailRoot);
+
+  if (!elementsToPatch.length) {
+    return;
+  }
+
+  elementsToPatch.forEach(function (scope) {
+    var nameEl = scope.querySelector("[data-auction-name]");
+    if (nameEl && payload.name) {
+      nameEl.textContent = payload.name;
+    }
+
+    var descriptionEl = scope.querySelector("[data-auction-description]");
+    if (descriptionEl && typeof payload.description === "string") {
+      descriptionEl.textContent = payload.description || "No description provided.";
+    }
+
+    var startEl = scope.querySelector("[data-auction-start]");
+    if (startEl && payload.startAt) {
+      startEl.textContent = new Date(payload.startAt).toLocaleString();
+      startEl.setAttribute("data-iso", payload.startAt);
+    }
+
+    var endEl = scope.querySelector("[data-auction-end]");
+    if (endEl && payload.endAt) {
+      endEl.textContent = new Date(payload.endAt).toLocaleString();
+      endEl.setAttribute("data-iso", payload.endAt);
+    }
+
+    var assetCountEl = scope.querySelector("[data-auction-asset-count]");
+    if (assetCountEl && typeof payload.assetCount === "number") {
+      assetCountEl.textContent = String(payload.assetCount);
+    }
+
+    var phaseBadgeEl = scope.querySelector("[data-auction-phase-badge]");
+    if (phaseBadgeEl && payload.phase) {
+      setPhaseBadge(phaseBadgeEl, payload.phase);
+    }
+
+    if (payload.phase) {
+      scope.setAttribute("data-auction-phase", payload.phase);
+    }
+  });
+
+  if (card && card.getAttribute("data-auction-phase") !== payload.phase) {
+    moveCardToCorrectGroup(card, payload);
+  }
+
+  if (
+    context &&
+    context.currentAuctionDetailId &&
+    context.currentAuctionDetailId === payload.auctionId &&
+    payload.phase === "closed"
+  ) {
+    showLiveBanner(detailRoot, "This auction has just closed. Reloading…");
+    setTimeout(function () {
+      window.location.reload();
+    }, 1500);
+  }
+
+  if (
+    context &&
+    context.currentAuctionDetailId &&
+    context.currentAuctionDetailId === payload.auctionId &&
+    payload.phase === "live" &&
+    detailRoot &&
+    detailRoot.getAttribute("data-was-live") !== "true"
+  ) {
+    detailRoot.setAttribute("data-was-live", "true");
+    showLiveBanner(detailRoot, "This auction is now live. Bidding is open.");
+  }
+}
+
+function moveCardToCorrectGroup(card, payload) {
+  var targetGroupKey = payload.phase === "live" ? "live" : payload.phase === "upcoming" ? "upcoming" : "past";
+  var targetGroup = document.querySelector('[data-auction-group="' + targetGroupKey + '"]');
+  if (!targetGroup) {
+    return;
+  }
+  var targetGrid = targetGroup.querySelector("[data-auction-group-grid]");
+  var emptyEl = targetGroup.querySelector("[data-auction-group-empty]");
+  if (!targetGrid) {
+    targetGrid = document.createElement("div");
+    targetGrid.className = "grid";
+    targetGrid.setAttribute("data-auction-group-grid", "");
+    if (emptyEl) {
+      emptyEl.replaceWith(targetGrid);
+    } else {
+      targetGroup.appendChild(targetGrid);
+    }
+  } else if (emptyEl) {
+    emptyEl.remove();
+  }
+
+  var sourceGroup = card.closest("[data-auction-group]");
+  card.parentNode.removeChild(card);
+  card.classList.add("auction-card-flash");
+  setTimeout(function () {
+    card.classList.remove("auction-card-flash");
+  }, 1500);
+  targetGrid.prepend(card);
+
+  refreshGroupCount(sourceGroup);
+  refreshGroupCount(targetGroup);
+}
+
+function refreshGroupCount(group) {
+  if (!group) return;
+  var grid = group.querySelector("[data-auction-group-grid]");
+  var count = grid ? grid.querySelectorAll("[data-auction-card]").length : 0;
+  var countEl = group.querySelector("[data-auction-group-count]");
+  if (countEl) {
+    countEl.textContent = String(count);
+  }
+  if (count === 0 && grid && !group.querySelector("[data-auction-group-empty]")) {
+    var empty = document.createElement("p");
+    empty.className = "muted";
+    empty.setAttribute("data-auction-group-empty", "");
+    var groupKey = group.getAttribute("data-auction-group");
+    if (groupKey === "live") empty.textContent = "No auctions are currently live. Check back soon.";
+    else if (groupKey === "upcoming") empty.textContent = "No upcoming auctions scheduled.";
+    else empty.textContent = "No past auctions yet.";
+    grid.replaceWith(empty);
+  }
+}
+
+function showLiveBanner(scope, message) {
+  if (!scope) return;
+  var banner = scope.querySelector("[data-live-banner]");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.className = "alert alert-success live-banner";
+    banner.setAttribute("data-live-banner", "");
+    scope.prepend(banner);
+  }
+  banner.textContent = message;
 }
 
 function setStatusPill(element, status) {
@@ -136,8 +300,22 @@ function setStatusBadge(element, status) {
   }
 }
 
+function setPhaseBadge(element, phase) {
+  element.classList.remove("badge-live", "badge-upcoming", "badge-closed", "badge-open");
+  if (phase === "live") {
+    element.classList.add("badge-live");
+    element.textContent = "Live";
+  } else if (phase === "upcoming") {
+    element.classList.add("badge-upcoming");
+    element.textContent = "Upcoming";
+  } else {
+    element.classList.add("badge-closed");
+    element.textContent = "Closed";
+  }
+}
+
 function formatCurrency(value) {
-  return `R ${Number(value).toFixed(2)}`;
+  return "R " + Number(value).toFixed(2);
 }
 
 function escapeHtml(value) {

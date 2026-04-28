@@ -6,38 +6,61 @@
 </section>
 
 <%
-  function renderAuctionGroup(heading, list, emptyText, ctaLabel) {
+  function phaseLabel(phase) {
+    if (phase === "live") return "Live";
+    if (phase === "upcoming") return "Upcoming";
+    return "Closed";
+  }
+
+  function phaseBadgeClass(phase) {
+    if (phase === "live") return "badge badge-live";
+    if (phase === "upcoming") return "badge badge-upcoming";
+    return "badge badge-closed";
+  }
+
+  function renderAuctionGroup(heading, list, emptyText, ctaLabel, groupKey) {
 %>
-  <section class="section auction-group">
+  <section class="section auction-group" data-auction-group="<%= groupKey %>">
     <div class="auction-group-header">
       <h2><%= heading %></h2>
-      <span class="auction-group-count"><%= list.length %></span>
+      <span class="auction-group-count" data-auction-group-count><%= list.length %></span>
     </div>
     <% if (!list.length) { %>
-      <p class="muted"><%= emptyText %></p>
+      <p class="muted" data-auction-group-empty><%= emptyText %></p>
     <% } else { %>
-      <div class="grid">
+      <div class="grid" data-auction-group-grid>
         <% list.forEach((auction) => { %>
-          <article class="card auction-card">
+          <article
+            class="card auction-card"
+            data-auction-card="<%= auction.id %>"
+            data-auction-phase="<%= auction.phase %>"
+          >
             <div class="card-header">
-              <h3><%= auction.name %></h3>
-              <span class="badge <%= auction.status === 'open' ? 'badge-open' : 'badge-closed' %>">
-                <%= (auction.status || '').toUpperCase() %>
-              </span>
+              <h3 data-auction-name><%= auction.name %></h3>
+              <span
+                class="<%= phaseBadgeClass(auction.phase) %>"
+                data-auction-phase-badge
+              ><%= phaseLabel(auction.phase) %></span>
             </div>
-            <p class="muted"><%= auction.description || "No description provided." %></p>
+            <p class="muted" data-auction-description>
+              <%= auction.description || "No description provided." %>
+            </p>
             <dl class="detail-list">
               <div>
                 <dt>Starts</dt>
-                <dd><%= new Date(auction.start_at).toLocaleString() %></dd>
+                <dd data-auction-start data-iso="<%= auction.start_at %>">
+                  <%= new Date(auction.start_at).toLocaleString() %>
+                </dd>
               </div>
               <div>
                 <dt>Ends</dt>
-                <dd><%= new Date(auction.end_at).toLocaleString() %></dd>
+                <dd data-auction-end data-iso="<%= auction.end_at %>">
+                  <%= new Date(auction.end_at).toLocaleString() %>
+                </dd>
               </div>
               <div>
                 <dt>Items</dt>
-                <dd><%= auction.asset_count %></dd>
+                <dd data-auction-asset-count><%= auction.asset_count %></dd>
               </div>
             </dl>
             <a class="btn" href="/auctions/<%= auction.id %>"><%= ctaLabel %></a>
@@ -53,24 +76,30 @@
     "Live auctions",
     liveAuctions,
     "No auctions are currently live. Check back soon.",
-    "View items & bid"
+    "View items & bid",
+    "live"
   );
 
   renderAuctionGroup(
     "Upcoming auctions",
     upcomingAuctions,
     "No upcoming auctions scheduled.",
-    "Preview"
+    "Preview",
+    "upcoming"
   );
 
-  if (pastAuctions && pastAuctions.length) {
-    renderAuctionGroup(
-      "Past auctions",
-      pastAuctions,
-      "No past auctions yet.",
-      "View results"
-    );
-  }
+  renderAuctionGroup(
+    "Past auctions",
+    pastAuctions || [],
+    "No past auctions yet.",
+    "View results",
+    "past"
+  );
 %>
+
+<div data-realtime-root data-mode="auctions" hidden></div>
+
+<script src="/socket.io/socket.io.js?v=<%= assetVersion %>"></script>
+<script src="/realtime.js?v=<%= assetVersion %>"></script>
 
 <%- include("partials/footer") %>

@@ -141,7 +141,7 @@ function isClientAbortError(error) {
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.locals.formatCurrency = formatCurrency;
-app.locals.assetVersion = process.env.ASSET_VERSION || "20260428j";
+app.locals.assetVersion = process.env.ASSET_VERSION || "20260428k";
 
 const staticAssetOptions = {
   etag: false,
@@ -218,6 +218,8 @@ app.use((req, res, next) => {
 app.use(async (req, res, next) => {
   try {
     await closeExpiredAssets();
+    await closeExpiredAuctions();
+    await detectAuctionPhaseTransitions();
     next();
   } catch (error) {
     next(error);
@@ -373,16 +375,13 @@ app.get("/assets", async (req, res, next) => {
     const liveAuctions = [];
     const upcomingAuctions = [];
     const pastAuctions = [];
+    const nowMs = Date.now();
     for (const auction of auctions) {
-      const startsAt = auction.start_at ? new Date(auction.start_at).getTime() : NaN;
-      const endsAt = auction.end_at ? new Date(auction.end_at).getTime() : NaN;
-      const now = Date.now();
-      const hasStarted = Number.isFinite(startsAt) ? startsAt <= now : true;
-      const hasEnded = Number.isFinite(endsAt) ? endsAt <= now : false;
-
-      if (auction.status === "closed" || hasEnded) {
+      const phase = deriveAuctionPhase(auction, nowMs);
+      auction.phase = phase;
+      if (phase === "closed") {
         pastAuctions.push(auction);
-      } else if (auction.status === "open" && hasStarted) {
+      } else if (phase === "live") {
         liveAuctions.push(auction);
       } else {
         upcomingAuctions.push(auction);
@@ -428,6 +427,7 @@ app.get("/auctions/:id", async (req, res, next) => {
         message: "Auction not found."
       });
     }
+    auction.phase = deriveAuctionPhase(auction);
 
     const assets = await db.all(
       `SELECT a.*,
@@ -535,7 +535,13 @@ app.post("/assets/:id/bid", requireRole("user"), async (req, res, next) => {
     }
 
     await db.run("BEGIN IMMEDIATE TRANSACTION");
-    const asset = await db.get("SELECT * FROM assets WHERE id = ?", assetId);
+    const asset = await db.get(
+      `SELECT a.*, auc.start_at AS auction_start_at, auc.end_at AS auction_end_at, auc.status AS auction_status
+       FROM assets a
+       JOIN auctions auc ON auc.id = a.auction_id
+       WHERE a.id = ?`,
+      assetId
+    );
 
     if (!asset) {
       await db.run("ROLLBACK");
@@ -545,7 +551,22 @@ app.post("/assets/:id/bid", requireRole("user"), async (req, res, next) => {
       });
     }
 
-    if (asset.status !== "open" || new Date(asset.end_at) <= new Date()) {
+    const now = new Date();
+    const auctionStartsAt = asset.auction_start_at ? new Date(asset.auction_start_at) : null;
+    const auctionEndsAt = asset.auction_end_at ? new Date(asset.auction_end_at) : null;
+
+    if (auctionStartsAt && auctionStartsAt > now) {
+      await db.run("ROLLBACK");
+      return renderAssetWithError(
+        res,
+        assetId,
+        `Bidding opens at ${auctionStartsAt.toLocaleString()}.`
+      );
+    }
+
+    const auctionEnded =
+      asset.auction_status === "closed" || (auctionEndsAt && auctionEndsAt <= now);
+    if (asset.status !== "open" || (asset.end_at && new Date(asset.end_at) <= now) || auctionEnded) {
       if (asset.status === "open") {
         await db.run("UPDATE assets SET status = 'closed' WHERE id = ?", assetId);
       }
@@ -625,7 +646,7 @@ app.post("/admin/auctions", requireRole("admin"), async (req, res, next) => {
   try {
     const data = validateAuctionFields(req.body);
     const db = getDb();
-    await db.run(
+    const result = await db.run(
       `INSERT INTO auctions (title, description, start_at, end_at, status, created_by)
        VALUES (?, ?, ?, ?, ?, ?)`,
       data.name,
@@ -636,6 +657,10 @@ app.post("/admin/auctions", requireRole("admin"), async (req, res, next) => {
       req.session.user.id
     );
 
+    if (result && result.lastID) {
+      await broadcastAuctionUpdate(result.lastID);
+    }
+    await detectAuctionPhaseTransitions();
     req.session.notice = "Auction created successfully.";
     return res.redirect("/admin/auctions");
   } catch (error) {
@@ -694,6 +719,8 @@ app.post("/admin/auctions/:id/edit", requireRole("admin"), async (req, res, next
       auctionId
     );
     await syncAuctionAssetsWithAuctionWindow(auctionId);
+    await detectAuctionPhaseTransitions();
+    await broadcastAuctionUpdate(auctionId);
 
     req.session.notice = "Auction updated.";
     return res.redirect(`/admin/auctions/${auctionId}/edit`);
@@ -716,6 +743,8 @@ app.post("/admin/auctions/:id/close", requireRole("admin"), async (req, res, nex
     await db.run("COMMIT");
 
     await Promise.all(assets.map((asset) => broadcastAssetUpdate(asset.id)));
+    await broadcastAuctionUpdate(auctionId);
+    await detectAuctionPhaseTransitions();
 
     req.session.notice = "Auction closed successfully.";
     return res.redirect(`/admin/auctions/${auctionId}/edit`);
@@ -775,6 +804,7 @@ app.post(
       if (createdAssetId) {
         await broadcastAssetUpdate(createdAssetId);
       }
+      await broadcastAuctionUpdate(auctionId);
 
       const redirectTo = `/admin/auctions/${auctionId}/edit`;
       req.session.notice = "Asset added to auction.";
@@ -923,6 +953,7 @@ app.post("/admin/assets/:id/remove", requireRole("admin"), async (req, res, next
     const media = await getAssetMediaRaw(assetId);
     await getDb().run("DELETE FROM assets WHERE id = ?", assetId);
     await deleteMediaFilesByRows(media);
+    await broadcastAuctionUpdate(asset.auction_id);
 
     req.session.notice = "Asset removed from auction.";
     return res.redirect(`/admin/auctions/${asset.auction_id}/edit`);
@@ -1071,6 +1102,26 @@ async function renderAdminAssetEditWithError(res, assetId, formError, statusCode
   });
 }
 
+function deriveAuctionPhase(auction, nowMs) {
+  if (!auction) {
+    return "closed";
+  }
+  if (auction.status === "closed") {
+    return "closed";
+  }
+  const startsAt = auction.start_at ? new Date(auction.start_at).getTime() : NaN;
+  const endsAt = auction.end_at ? new Date(auction.end_at).getTime() : NaN;
+  const reference = typeof nowMs === "number" ? nowMs : Date.now();
+
+  if (Number.isFinite(endsAt) && endsAt <= reference) {
+    return "closed";
+  }
+  if (Number.isFinite(startsAt) && startsAt > reference) {
+    return "upcoming";
+  }
+  return "live";
+}
+
 async function closeExpiredAssets() {
   const db = getDb();
   const expiredAssets = await db.all(
@@ -1080,7 +1131,7 @@ async function closeExpiredAssets() {
     new Date().toISOString()
   );
   if (!expiredAssets.length) {
-    return;
+    return [];
   }
 
   await db.run(
@@ -1091,6 +1142,96 @@ async function closeExpiredAssets() {
   );
 
   await Promise.all(expiredAssets.map((asset) => broadcastAssetUpdate(asset.id)));
+  return expiredAssets.map((asset) => asset.id);
+}
+
+async function closeExpiredAuctions() {
+  const db = getDb();
+  const nowIso = new Date().toISOString();
+  const expiredAuctions = await db.all(
+    `SELECT id
+     FROM auctions
+     WHERE status = 'open' AND end_at <= ?`,
+    nowIso
+  );
+  if (!expiredAuctions.length) {
+    return [];
+  }
+
+  const ids = expiredAuctions.map((row) => row.id);
+  const placeholders = ids.map(() => "?").join(",");
+  await db.run(
+    `UPDATE auctions
+     SET status = 'closed'
+     WHERE id IN (${placeholders})`,
+    ...ids
+  );
+  await db.run(
+    `UPDATE assets
+     SET status = 'closed'
+     WHERE auction_id IN (${placeholders}) AND status = 'open'`,
+    ...ids
+  );
+
+  await Promise.all(ids.map((id) => broadcastAuctionUpdate(id)));
+  return ids;
+}
+
+let lastAuctionPhases = new Map();
+
+async function detectAuctionPhaseTransitions() {
+  const db = getDb();
+  const auctions = await db.all(
+    `SELECT id, status, start_at, end_at FROM auctions`
+  );
+  const nowMs = Date.now();
+  const transitioned = [];
+  const nextSnapshot = new Map();
+
+  for (const auction of auctions) {
+    const phase = deriveAuctionPhase(auction, nowMs);
+    nextSnapshot.set(auction.id, phase);
+    const previousPhase = lastAuctionPhases.get(auction.id);
+    if (previousPhase && previousPhase !== phase) {
+      transitioned.push({ id: auction.id, from: previousPhase, to: phase });
+    }
+  }
+
+  lastAuctionPhases = nextSnapshot;
+
+  if (!transitioned.length) {
+    return transitioned;
+  }
+
+  await Promise.all(
+    transitioned.map(({ id }) => broadcastAuctionUpdate(id))
+  );
+
+  return transitioned;
+}
+
+async function runScheduledSweep() {
+  try {
+    await closeExpiredAssets();
+    await closeExpiredAuctions();
+    await detectAuctionPhaseTransitions();
+  } catch (error) {
+    console.error("Scheduled auction sweep failed:", error);
+  }
+}
+
+const AUCTION_SWEEP_INTERVAL_MS = Number(process.env.AUCTION_SWEEP_INTERVAL_MS) || 30 * 1000;
+let auctionSweepTimer = null;
+
+function startAuctionSweep() {
+  if (auctionSweepTimer) {
+    return;
+  }
+  runScheduledSweep();
+  auctionSweepTimer = setInterval(runScheduledSweep, AUCTION_SWEEP_INTERVAL_MS);
+  if (auctionSweepTimer.unref) {
+    auctionSweepTimer.unref();
+  }
 }
 
 class ValidationError extends Error {}
@@ -1359,6 +1500,7 @@ const PORT = process.env.PORT || 3000;
 
 async function start() {
   await initDb();
+  startAuctionSweep();
   httpServer.listen(PORT, () => {
     console.log(`Auction platform running on http://localhost:${PORT}`);
   });
@@ -1366,6 +1508,35 @@ async function start() {
 
 function assetRoomName(assetId) {
   return `asset:${assetId}`;
+}
+
+async function broadcastAuctionUpdate(auctionId) {
+  const db = getDb();
+  const auction = await db.get(
+    `SELECT id, title AS name, description, start_at, end_at, status,
+            (SELECT COUNT(*) FROM assets x WHERE x.auction_id = auctions.id) AS asset_count
+     FROM auctions
+     WHERE id = ?`,
+    auctionId
+  );
+  if (!auction) {
+    return;
+  }
+
+  const phase = deriveAuctionPhase(auction);
+  const payload = {
+    auctionId: auction.id,
+    name: auction.name,
+    description: auction.description,
+    status: auction.status,
+    phase,
+    startAt: auction.start_at,
+    endAt: auction.end_at,
+    assetCount: Number(auction.asset_count) || 0,
+    serverTime: new Date().toISOString()
+  };
+
+  io.emit("auction:update", payload);
 }
 
 async function broadcastAssetUpdate(assetId) {

@@ -6,28 +6,47 @@
   <span><%= auction.name %></span>
 </nav>
 
-<section class="page-header auction-header">
+<%
+  function phaseLabel(phase) {
+    if (phase === "live") return "Live";
+    if (phase === "upcoming") return "Upcoming";
+    return "Closed";
+  }
+  function phaseBadgeClass(phase) {
+    if (phase === "live") return "badge badge-live";
+    if (phase === "upcoming") return "badge badge-upcoming";
+    return "badge badge-closed";
+  }
+%>
+
+<section
+  class="page-header auction-header"
+  data-realtime-root
+  data-mode="auction-detail"
+  data-auction-id="<%= auction.id %>"
+  data-auction-phase="<%= auction.phase %>"
+>
   <div class="auction-header-row">
-    <h1><%= auction.name %></h1>
-    <span class="badge <%= auction.status === 'open' ? 'badge-open' : 'badge-closed' %>">
-      <%= (auction.status || '').toUpperCase() %>
+    <h1 data-auction-name><%= auction.name %></h1>
+    <span class="<%= phaseBadgeClass(auction.phase) %>" data-auction-phase-badge>
+      <%= phaseLabel(auction.phase) %>
     </span>
   </div>
   <% if (auction.description) { %>
-    <p class="muted"><%= auction.description %></p>
+    <p class="muted" data-auction-description><%= auction.description %></p>
   <% } %>
   <dl class="auction-meta-row">
     <div>
       <dt>Starts</dt>
-      <dd><%= new Date(auction.start_at).toLocaleString() %></dd>
+      <dd data-auction-start data-iso="<%= auction.start_at %>"><%= new Date(auction.start_at).toLocaleString() %></dd>
     </div>
     <div>
       <dt>Ends</dt>
-      <dd><%= new Date(auction.end_at).toLocaleString() %></dd>
+      <dd data-auction-end data-iso="<%= auction.end_at %>"><%= new Date(auction.end_at).toLocaleString() %></dd>
     </div>
     <div>
       <dt>Items</dt>
-      <dd><%= assets.length %></dd>
+      <dd data-auction-asset-count><%= assets.length %></dd>
     </div>
   </dl>
 </section>
@@ -37,7 +56,7 @@
   <% if (!assets.length) { %>
     <p class="muted">No items have been listed in this auction yet.</p>
   <% } else { %>
-    <div class="grid" data-realtime-root data-mode="listing">
+    <div class="grid" data-asset-listing>
       <% assets.forEach((asset) => { %>
         <article class="card asset-listing-card" data-asset-card="<%= asset.id %>">
           <% if (asset.thumbnail) { %>

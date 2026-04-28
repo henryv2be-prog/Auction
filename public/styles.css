@@ -509,10 +509,40 @@ main.container {
 }
 
 .badge-open,
+.badge-live,
 .pill-open,
 .status.open {
   color: var(--color-success);
   background: var(--color-success-soft);
+}
+
+.badge-live::before {
+  content: "";
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+  margin-right: 0.4rem;
+  box-shadow: 0 0 0 0 currentColor;
+  animation: pulse-dot 1.6s infinite;
+}
+
+@keyframes pulse-dot {
+  0% {
+    box-shadow: 0 0 0 0 rgba(4, 120, 87, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(4, 120, 87, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(4, 120, 87, 0);
+  }
+}
+
+.badge-upcoming {
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
 }
 
 .badge-closed,
@@ -1251,6 +1281,31 @@ body.overlay-open {
   margin: 0;
   font-size: 0.85rem;
   color: var(--color-text-muted);
+}
+
+/* ---------- Realtime feedback ---------- */
+
+.auction-card-flash {
+  animation: card-flash 1.5s ease;
+}
+
+@keyframes card-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(79, 70, 229, 0);
+    border-color: var(--color-border);
+  }
+  20% {
+    box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.35);
+    border-color: var(--color-primary);
+  }
+  100% {
+    box-shadow: var(--shadow-sm);
+    border-color: var(--color-border);
+  }
+}
+
+.live-banner {
+  margin-bottom: var(--space-3);
 }
 
 /* ---------- Upload progress UI ---------- */
