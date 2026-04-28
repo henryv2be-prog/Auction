@@ -105,7 +105,7 @@ function adminAssetUpload(req, res, next) {
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.locals.formatCurrency = formatCurrency;
-app.locals.assetVersion = process.env.ASSET_VERSION || "20260428e";
+app.locals.assetVersion = process.env.ASSET_VERSION || "20260428f";
 
 const staticAssetOptions = {
   etag: false,

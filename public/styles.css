@@ -216,34 +216,37 @@ main.container {
   margin-top: 1rem;
 }
 
-.media-viewport {
+.carousel-stage {
   position: relative;
   border: 1px solid #e5e7eb;
-  border-radius: 0.75rem;
+  border-radius: 0.7rem;
   overflow: hidden;
   background: #0f172a;
 }
 
-.media-track {
+.carousel-track {
   display: flex;
-  transition: transform 0.25s ease;
+  transition: transform 0.25s ease-out;
   touch-action: pan-y;
+  will-change: transform;
 }
 
-.media-slide {
+.carousel-slide {
+  flex: 0 0 100%;
   min-width: 100%;
   padding: 0;
+  margin: 0;
   border: 0;
   background: transparent;
   position: relative;
   cursor: pointer;
 }
 
-.media-slide img,
-.media-slide video {
+.carousel-slide img,
+.carousel-slide video {
   display: block;
   width: 100%;
-  height: min(56vw, 470px);
+  height: min(56vw, 460px);
   object-fit: contain;
   background: #020617;
 }
@@ -260,45 +263,69 @@ main.container {
   font-size: 0.78rem;
 }
 
-.media-nav {
+.carousel-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
+  width: 2.1rem;
+  height: 2.1rem;
   border: 0;
-  width: 2.05rem;
-  height: 2.05rem;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.9);
   color: #0f172a;
   font-size: 1.15rem;
   cursor: pointer;
+  z-index: 2;
 }
 
-.media-nav-prev {
+.carousel-nav:hover {
+  background: #ffffff;
+}
+
+.carousel-prev {
   left: 0.65rem;
 }
 
-.media-nav-next {
+.carousel-next {
   right: 0.65rem;
 }
 
-.media-dots {
+.carousel-meta {
   display: flex;
-  justify-content: center;
-  gap: 0.45rem;
-  margin-top: 0.6rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
 }
 
-.media-dot {
-  width: 0.55rem;
-  height: 0.55rem;
+.carousel-counter {
+  color: #475569;
+  font-size: 0.85rem;
+}
+
+.carousel-caption {
+  margin: 0.35rem 0 0;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.carousel-dots {
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.carousel-dot {
+  width: 0.6rem;
+  height: 0.6rem;
   border-radius: 999px;
   border: 0;
+  padding: 0;
   background: #cbd5e1;
   cursor: pointer;
 }
 
-.media-dot.active {
+.carousel-dot.active {
   background: #2563eb;
 }
 
@@ -307,27 +334,32 @@ main.container {
   font-size: 0.88rem;
 }
 
-.media-lightbox {
+.media-modal {
   position: fixed;
   inset: 0;
   z-index: 2100;
   background: rgba(2, 6, 23, 0.9);
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   padding: 1rem;
 }
 
-.media-lightbox[hidden] {
+.media-modal.open {
+  display: flex;
+}
+
+.media-modal[hidden] {
   display: none;
 }
 
-.lightbox-body {
+.media-modal-content {
   width: min(1100px, 96vw);
+  position: relative;
 }
 
-.lightbox-body img,
-.lightbox-body video {
+.media-modal-media img,
+.media-modal-media video {
   width: 100%;
   max-height: 82vh;
   object-fit: contain;
@@ -335,10 +367,10 @@ main.container {
   border-radius: 0.6rem;
 }
 
-.lightbox-close {
+.media-modal-close {
   position: fixed;
-  right: 1rem;
   top: 1rem;
+  right: 1rem;
   width: 2.2rem;
   height: 2.2rem;
   border: 0;
@@ -347,45 +379,34 @@ main.container {
   color: #0f172a;
   font-size: 1.3rem;
   cursor: pointer;
+  z-index: 2;
 }
 
-.lightbox-nav {
+.media-modal-nav {
   position: fixed;
   top: 50%;
   transform: translateY(-50%);
   border: 0;
-  width: 2.15rem;
-  height: 2.15rem;
+  width: 2.4rem;
+  height: 2.4rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.94);
   color: #0f172a;
-  font-size: 1.15rem;
+  font-size: 1.2rem;
   cursor: pointer;
+  z-index: 2;
 }
 
-.lightbox-nav-prev {
+.media-modal-prev {
   left: 1rem;
 }
 
-.lightbox-nav-next {
+.media-modal-next {
   right: 1rem;
 }
 
-.lightbox-caption {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 1rem;
-  margin: 0;
-  background: rgba(15, 23, 42, 0.78);
-  color: #f8fafc;
-  border-radius: 999px;
-  padding: 0.38rem 0.75rem;
-  font-size: 0.88rem;
-  max-width: min(92vw, 920px);
-  white-space: nowrap;
+body.overlay-open {
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .media-grid {
