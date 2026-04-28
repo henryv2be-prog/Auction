@@ -33,7 +33,7 @@
   }
 
   if (mode === "listing") {
-    socket.on("asset:update", (payload) => {
+    socket.on("asset:listing-update", (payload) => {
       if (!payload || !payload.assetId) {
         return;
       }
@@ -137,7 +137,7 @@ function setStatusBadge(element, status) {
 }
 
 function formatCurrency(value) {
-  return `$${Number(value).toFixed(2)}`;
+  return `R ${Number(value).toFixed(2)}`;
 }
 
 function escapeHtml(value) {

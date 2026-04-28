@@ -7,7 +7,12 @@
 
 <section class="card">
   <h2>Add Auction Asset</h2>
-  <form action="/admin/assets" method="post" class="grid-form">
+  <form
+    action="/admin/assets"
+    method="post"
+    enctype="multipart/form-data"
+    class="grid-form"
+  >
     <label>
       Asset title
       <input type="text" name="title" required />
@@ -20,6 +25,15 @@
       Description
       <textarea name="description" rows="4" required></textarea>
     </label>
+    <label class="full-row">
+      Item images (optional)
+      <input type="file" name="media" accept="image/*" multiple />
+    </label>
+    <label class="full-row">
+      Item videos (optional)
+      <input type="file" name="media" accept="video/*" multiple />
+    </label>
+    <p class="muted full-row">Allowed: JPG, PNG, GIF, WEBP, MP4, WEBM, MOV (max 25 MB each).</p>
     <label>
       Auction ends at
       <input type="datetime-local" name="endAt" required />
@@ -56,7 +70,7 @@
               <td>
                 <span class="status <%= asset.status %>"><%= asset.status %></span>
               </td>
-              <td>$<%= Number(asset.current_price).toFixed(2) %></td>
+              <td><%= formatCurrency(asset.current_price) %></td>
               <td><%= asset.bid_count %></td>
               <td><%= new Date(asset.end_at).toLocaleString() %></td>
               <td>

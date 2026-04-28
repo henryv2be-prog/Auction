@@ -21,8 +21,8 @@
             <td>
               <a href="/assets/<%= bid.asset_id %>"><%= bid.title %></a>
             </td>
-            <td>$<%= Number(bid.amount).toFixed(2) %></td>
-            <td>$<%= Number(bid.current_price).toFixed(2) %></td>
+            <td><%= formatCurrency(bid.amount) %></td>
+            <td><%= formatCurrency(bid.current_price) %></td>
             <td><span class="pill pill-<%= bid.status %>"><%= bid.status %></span></td>
             <td><%= new Date(bid.created_at).toLocaleString() %></td>
           </tr>

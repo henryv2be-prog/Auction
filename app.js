@@ -1,26 +1,112 @@
 require("dotenv").config();
 
+const fs = require("fs/promises");
 const http = require("http");
 const path = require("path");
 const express = require("express");
 const session = require("express-session");
 const SQLiteStore = require("connect-sqlite3")(session);
 const { Server } = require("socket.io");
+const multer = require("multer");
 const bcrypt = require("bcryptjs");
 
 const { initDb, getDb } = require("./db");
-const { resolveSessionDbPath } = require("./storage");
-const { requireAuth, requireRole } = require("./middleware/auth");
+const { resolveSessionDbPath, resolveUploadsDir } = require("./storage");
+const { requireRole } = require("./middleware/auth");
 
 const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer);
+const uploadsDir = resolveUploadsDir();
+
+function toPositiveInteger(value, fallbackValue) {
+  const parsed = Number.parseInt(value, 10);
+  if (Number.isInteger(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return fallbackValue;
+}
+
+function isAllowedMediaType(mimeType) {
+  return typeof mimeType === "string" && (mimeType.startsWith("image/") || mimeType.startsWith("video/"));
+}
+
+function inferMediaTypeFromMime(mimeType) {
+  if (typeof mimeType === "string" && mimeType.startsWith("video/")) {
+    return "video";
+  }
+  return "image";
+}
+
+function getSafeFileExtension(fileName) {
+  const extension = path.extname(String(fileName || "")).toLowerCase();
+  if (!/^\.[a-z0-9]+$/.test(extension)) {
+    return "";
+  }
+  return extension;
+}
+
+function buildUploadErrorMessage(error) {
+  if (error instanceof multer.MulterError) {
+    if (error.code === "LIMIT_FILE_SIZE") {
+      return `Each file must be smaller than ${maxMediaFileSizeMb} MB.`;
+    }
+    if (error.code === "LIMIT_FILE_COUNT") {
+      return `You can upload up to ${maxMediaFiles} media files per item.`;
+    }
+    return "Invalid upload request. Please check your files and try again.";
+  }
+  return error && error.message ? error.message : "Unable to upload media files.";
+}
+
+const randFormatter = new Intl.NumberFormat("en-ZA", {
+  style: "currency",
+  currency: "ZAR"
+});
+const maxMediaFiles = toPositiveInteger(process.env.MAX_MEDIA_FILES, 8);
+const maxMediaFileSizeMb = toPositiveInteger(process.env.MAX_MEDIA_FILE_MB, 50);
+const upload = multer({
+  storage: multer.diskStorage({
+    destination(req, file, callback) {
+      callback(null, uploadsDir);
+    },
+    filename(req, file, callback) {
+      const extension = getSafeFileExtension(file.originalname);
+      callback(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`);
+    }
+  }),
+  limits: {
+    files: maxMediaFiles,
+    fileSize: maxMediaFileSizeMb * 1024 * 1024
+  },
+  fileFilter(req, file, callback) {
+    if (isAllowedMediaType(file.mimetype)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error("Only image and video files are allowed."));
+  }
+});
+
+function adminAssetUpload(req, res, next) {
+  upload.array("media", maxMediaFiles)(req, res, async (error) => {
+    if (!error) {
+      next();
+      return;
+    }
+
+    await deleteFilesIfPresent(req.files || []);
+    return renderAdminDashboard(res, buildUploadErrorMessage(error), 400);
+  });
+}
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
+app.locals.formatCurrency = formatCurrency;
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "public")));
+app.use("/uploads", express.static(uploadsDir));
 
 io.on("connection", (socket) => {
   socket.on("asset:subscribe", (assetId) => {
@@ -253,11 +339,13 @@ app.get("/assets/:id", async (req, res, next) => {
        LIMIT 20`,
       assetId
     );
+    const media = await getAssetMedia(assetId);
 
     return res.render("asset-detail", {
       title: asset.title,
       asset,
       bids,
+      media,
       formError: null
     });
   } catch (error) {
@@ -299,7 +387,7 @@ app.post("/assets/:id/bid", requireRole("user"), async (req, res, next) => {
       return renderAssetWithError(
         res,
         assetId,
-        `Bid must be greater than the current price (${asset.current_price.toFixed(2)}).`
+        `Bid must be greater than the current price (${formatCurrency(asset.current_price)}).`
       );
     }
 
@@ -365,11 +453,14 @@ app.get("/admin", requireRole("admin"), async (req, res, next) => {
   }
 });
 
-app.post("/admin/assets", requireRole("admin"), async (req, res, next) => {
+app.post("/admin/assets", requireRole("admin"), adminAssetUpload, async (req, res, next) => {
+  const uploadedFiles = req.files || [];
+  const db = getDb();
   try {
     const { title, description, startPrice, endAt } = req.body;
 
     if (!title || !description || !startPrice || !endAt) {
+      await deleteFilesIfPresent(uploadedFiles);
       return renderAdminDashboard(
         res,
         "All fields are required to create an auction asset.",
@@ -382,14 +473,16 @@ app.post("/admin/assets", requireRole("admin"), async (req, res, next) => {
     const now = new Date();
 
     if (!Number.isFinite(price) || price <= 0) {
+      await deleteFilesIfPresent(uploadedFiles);
       return renderAdminDashboard(res, "Start price must be a valid positive number.", 400);
     }
 
     if (Number.isNaN(endDate.getTime()) || endDate <= now) {
+      await deleteFilesIfPresent(uploadedFiles);
       return renderAdminDashboard(res, "End date must be a valid future date/time.", 400);
     }
 
-    const db = getDb();
+    await db.run("BEGIN IMMEDIATE TRANSACTION");
     const result = await db.run(
       `INSERT INTO assets (title, description, start_price, current_price, start_at, end_at, status, created_by)
        VALUES (?, ?, ?, ?, ?, ?, 'open', ?)`,
@@ -401,11 +494,32 @@ app.post("/admin/assets", requireRole("admin"), async (req, res, next) => {
       endDate.toISOString(),
       req.session.user.id
     );
+
+    if (uploadedFiles.length) {
+      for (const file of uploadedFiles) {
+        await db.run(
+          `INSERT INTO asset_media (asset_id, media_type, file_path, original_name)
+           VALUES (?, ?, ?, ?)`,
+          result.lastID,
+          inferMediaTypeFromMime(file.mimetype),
+          file.filename,
+          file.originalname
+        );
+      }
+    }
+
+    await db.run("COMMIT");
     await broadcastAssetUpdate(result.lastID);
 
     req.session.notice = "Asset created and opened for bidding.";
     return res.redirect("/admin");
   } catch (error) {
+    try {
+      await db.run("ROLLBACK");
+    } catch (rollbackError) {
+      // no-op
+    }
+    await deleteFilesIfPresent(uploadedFiles);
     return next(error);
   }
 });
@@ -431,6 +545,10 @@ app.use((req, res) => {
 });
 
 app.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError || error.message === "Only image and video files are allowed.") {
+    return renderAdminDashboard(res, buildUploadErrorMessage(error), 400);
+  }
+
   console.error(error);
   res.status(500).render("error", {
     title: "Server Error",
@@ -461,6 +579,7 @@ async function renderAssetWithError(res, assetId, formError) {
     title: asset ? asset.title : "Asset",
     asset,
     bids,
+    media: asset ? await getAssetMedia(asset.id) : [],
     formError
   });
 }
@@ -500,6 +619,56 @@ async function closeExpiredAssets() {
   );
 
   await Promise.all(expiredAssets.map((asset) => broadcastAssetUpdate(asset.id)));
+}
+
+function formatCurrency(value) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return randFormatter.format(0);
+  }
+  return randFormatter.format(numericValue);
+}
+
+async function getAssetMedia(assetId) {
+  const db = getDb();
+  const media = await db.all(
+    `SELECT id, media_type, file_path, original_name, created_at
+     FROM asset_media
+     WHERE asset_id = ?
+     ORDER BY created_at ASC, id ASC`,
+    assetId
+  );
+
+  return media.map(mapMediaForView);
+}
+
+function mapMediaForView(mediaItem) {
+  return {
+    ...mediaItem,
+    file_path: `/uploads/${encodeURIComponent(mediaItem.file_path)}`
+  };
+}
+
+async function deleteFilesIfPresent(files) {
+  if (!Array.isArray(files) || !files.length) {
+    return;
+  }
+
+  await Promise.all(
+    files.map(async (file) => {
+      if (!file || !file.path) {
+        return;
+      }
+
+      try {
+        await fs.unlink(file.path);
+      } catch (error) {
+        if (error && error.code !== "ENOENT") {
+          console.error("Failed to delete uploaded file:", error);
+        }
+      }
+    })
+  );
 }
 
 const PORT = process.env.PORT || 3000;
@@ -542,6 +711,12 @@ async function broadcastAssetUpdate(assetId) {
      LIMIT 1`,
     assetId
   );
+  const mediaCountRow = await db.get(
+    `SELECT COUNT(*) AS media_count
+     FROM asset_media
+     WHERE asset_id = ?`,
+    assetId
+  );
 
   const payload = {
     assetId: asset.id,
@@ -549,6 +724,7 @@ async function broadcastAssetUpdate(assetId) {
     currentPrice: Number(asset.current_price),
     status: asset.status,
     bidCount: bidCountRow ? Number(bidCountRow.bid_count) : 0,
+    mediaCount: mediaCountRow ? Number(mediaCountRow.media_count) : 0,
     latestBid: latestBid
       ? {
           amount: Number(latestBid.amount),

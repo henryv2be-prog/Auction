@@ -15,6 +15,8 @@ An online auction platform where:
 - User "My Bids" page
 - SQLite-backed persistence
 - Socket.IO real-time updates for bid and status changes
+- Rand (ZAR) currency display throughout the UI
+- Admin media uploads (images + videos) per auction item
 
 ## Tech Stack
 
@@ -23,6 +25,7 @@ An online auction platform where:
 - SQLite (`sqlite3`, `sqlite`)
 - `express-session` + `connect-sqlite3`
 - `socket.io` for live bid broadcasts
+- `multer` for media uploads
 - `bcryptjs` for password hashing
 
 ## Setup
@@ -78,6 +81,17 @@ See `.env.example`:
 - `ADMIN_NAME`
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
+
+## Media uploads
+
+- Admins can attach up to **10 files** when creating an auction item.
+- Supported file types:
+  - Images: `jpg`, `jpeg`, `png`, `webp`, `gif`
+  - Videos: `mp4`, `webm`, `mov`, `m4v`
+- Max upload size: **50MB per file**
+- Uploaded media is stored under:
+  - `<DATA_DIR>/uploads`
+  - and served via `/uploads/...`
 
 ## Railway deployment notes
 

@@ -27,11 +27,11 @@
       <dl class="detail-list">
         <div>
           <dt>Current Price</dt>
-          <dd data-asset-price>$<%= Number(asset.current_price).toFixed(2) %></dd>
+          <dd data-asset-price><%= formatCurrency(asset.current_price) %></dd>
         </div>
         <div>
           <dt>Start Price</dt>
-          <dd>$<%= Number(asset.start_price).toFixed(2) %></dd>
+          <dd><%= formatCurrency(asset.start_price) %></dd>
         </div>
         <div>
           <dt>Seller</dt>

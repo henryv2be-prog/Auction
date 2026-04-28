@@ -3,3 +3,4 @@ auction.db
 sessions.sqlite
 .env
 npm-debug.log*
+data/

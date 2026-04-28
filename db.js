@@ -54,6 +54,18 @@ async function initDb() {
     );
   `);
 
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS asset_media (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      asset_id INTEGER NOT NULL,
+      media_type TEXT NOT NULL CHECK (media_type IN ('image', 'video')),
+      file_path TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
+    );
+  `);
+
   await seedAdminUser();
 
   return db;

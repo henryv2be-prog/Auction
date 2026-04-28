@@ -52,9 +52,19 @@ function resolveSessionDbPath() {
   return path.join(resolveDataDir(), "sessions.sqlite");
 }
 
+function resolveUploadsDir() {
+  const configuredUploadsDir = String(process.env.UPLOADS_DIR || "").trim();
+  if (configuredUploadsDir) {
+    return ensureDirectory(path.resolve(configuredUploadsDir));
+  }
+
+  return ensureDirectory(path.join(resolveDataDir(), "uploads"));
+}
+
 module.exports = {
   resolveDataDir,
   resolveDbPath,
   resolveSessionStoreDir,
-  resolveSessionDbPath
+  resolveSessionDbPath,
+  resolveUploadsDir
 };
