@@ -24,13 +24,16 @@
       <textarea name="description" rows="3"></textarea>
     </label>
     <label>
-      Starts at
+      Starts at (SAST)
       <input type="datetime-local" name="startAt" required />
     </label>
     <label>
-      Ends at
+      Ends at (SAST)
       <input type="datetime-local" name="endAt" required />
     </label>
+    <p class="muted full-row upload-help">
+      All times are interpreted as South African Standard Time (UTC+02:00).
+    </p>
     <div class="button-row">
       <button type="submit" class="btn">Create Auction</button>
     </div>
@@ -65,8 +68,8 @@
               </td>
               <td data-label="Status"><span class="status <%= auction.status %>"><%= auction.status %></span></td>
               <td data-label="Assets"><%= auction.asset_count %></td>
-              <td data-label="Starts"><%= new Date(auction.start_at).toLocaleString() %></td>
-              <td data-label="Ends"><%= new Date(auction.end_at).toLocaleString() %></td>
+              <td data-label="Starts (SAST)"><%= formatSastDateTime(auction.start_at) %></td>
+              <td data-label="Ends (SAST)"><%= formatSastDateTime(auction.end_at) %></td>
               <td data-label="Actions">
                 <div class="actions-cell">
                   <a class="btn btn-secondary btn-sm" href="/admin/auctions/<%= auction.id %>/edit">Manage</a>

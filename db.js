@@ -85,12 +85,74 @@ async function initDb() {
   `);
 
   await migrateLegacyAssetsToAuctions();
+  await maybeShiftLegacyTimesToSast();
 
   await db.exec("CREATE INDEX IF NOT EXISTS idx_assets_auction_id ON assets(auction_id);");
   await db.exec("CREATE INDEX IF NOT EXISTS idx_bids_asset_id ON bids(asset_id);");
   await db.exec("CREATE INDEX IF NOT EXISTS idx_asset_media_asset_id ON asset_media(asset_id);");
 
   return db;
+}
+
+// One-time, opt-in migration. Set SHIFT_LEGACY_TIMES_HOURS=-2 to subtract
+// two hours from every existing start_at / end_at on auctions and assets
+// (use this if rows were stored when datetime-local input was being parsed
+// in UTC instead of SAST). The migration sets a marker row so it never
+// runs twice.
+async function maybeShiftLegacyTimesToSast() {
+  const shiftHoursRaw = process.env.SHIFT_LEGACY_TIMES_HOURS;
+  if (!shiftHoursRaw) {
+    return;
+  }
+  const shiftHours = Number(shiftHoursRaw);
+  if (!Number.isFinite(shiftHours) || shiftHours === 0) {
+    return;
+  }
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS app_migrations (
+      key TEXT PRIMARY KEY,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+  const marker = `shift_legacy_times_${shiftHoursRaw}`;
+  const existing = await db.get(
+    "SELECT key FROM app_migrations WHERE key = ?",
+    marker
+  );
+  if (existing) {
+    return;
+  }
+
+  const modifier = `${shiftHours >= 0 ? "+" : ""}${shiftHours} hours`;
+  console.log(`Shifting existing auction/asset times by ${modifier} for SAST migration`);
+
+  await db.run("BEGIN IMMEDIATE TRANSACTION");
+  try {
+    await db.run(
+      `UPDATE auctions
+       SET start_at = datetime(start_at, ?),
+           end_at   = datetime(end_at, ?)`,
+      modifier,
+      modifier
+    );
+    await db.run(
+      `UPDATE assets
+       SET start_at = datetime(start_at, ?),
+           end_at   = datetime(end_at, ?)`,
+      modifier,
+      modifier
+    );
+    await db.run("INSERT INTO app_migrations (key) VALUES (?)", marker);
+    await db.run("COMMIT");
+  } catch (error) {
+    try {
+      await db.run("ROLLBACK");
+    } catch (rollbackError) {
+      // ignore
+    }
+    throw error;
+  }
 }
 
 function getDb() {

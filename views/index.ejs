@@ -47,15 +47,15 @@
             </p>
             <dl class="detail-list">
               <div>
-                <dt>Starts</dt>
+                <dt>Starts (SAST)</dt>
                 <dd data-auction-start data-iso="<%= auction.start_at %>">
-                  <%= new Date(auction.start_at).toLocaleString() %>
+                  <%= formatSastDateTime(auction.start_at) %>
                 </dd>
               </div>
               <div>
-                <dt>Ends</dt>
+                <dt>Ends (SAST)</dt>
                 <dd data-auction-end data-iso="<%= auction.end_at %>">
-                  <%= new Date(auction.end_at).toLocaleString() %>
+                  <%= formatSastDateTime(auction.end_at) %>
                 </dd>
               </div>
               <div>

@@ -37,12 +37,12 @@
   <% } %>
   <dl class="auction-meta-row">
     <div>
-      <dt>Starts</dt>
-      <dd data-auction-start data-iso="<%= auction.start_at %>"><%= new Date(auction.start_at).toLocaleString() %></dd>
+      <dt>Starts (SAST)</dt>
+      <dd data-auction-start data-iso="<%= auction.start_at %>"><%= formatSastDateTime(auction.start_at) %></dd>
     </div>
     <div>
-      <dt>Ends</dt>
-      <dd data-auction-end data-iso="<%= auction.end_at %>"><%= new Date(auction.end_at).toLocaleString() %></dd>
+      <dt>Ends (SAST)</dt>
+      <dd data-auction-end data-iso="<%= auction.end_at %>"><%= formatSastDateTime(auction.end_at) %></dd>
     </div>
     <div>
       <dt>Items</dt>
@@ -94,8 +94,8 @@
               <dd data-asset-bid-count><%= asset.bid_count %></dd>
             </div>
             <div>
-              <dt>Closes</dt>
-              <dd><%= new Date(asset.end_at).toLocaleString() %></dd>
+              <dt>Closes (SAST)</dt>
+              <dd><%= formatSastDateTime(asset.end_at) %></dd>
             </div>
           </dl>
           <a class="btn" href="/assets/<%= asset.id %>">

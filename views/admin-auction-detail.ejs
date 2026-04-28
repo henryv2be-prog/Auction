@@ -5,8 +5,8 @@
   <p class="muted"><%= auction.description || "No description provided." %></p>
   <p class="muted">
     Status: <strong><%= auction.status.toUpperCase() %></strong> |
-    Starts: <%= new Date(auction.start_at).toLocaleString() %> |
-    Ends: <%= new Date(auction.end_at).toLocaleString() %>
+    Starts (SAST): <%= formatSastDateTime(auction.start_at) %> |
+    Ends (SAST): <%= formatSastDateTime(auction.end_at) %>
   </p>
 </section>
 
@@ -26,23 +26,26 @@
       </select>
     </label>
     <label>
-      Starts at
+      Starts at (SAST)
       <input
         type="datetime-local"
         name="startAt"
-        value="<%= new Date(auction.start_at).toISOString().slice(0, 16) %>"
+        value="<%= formatForDatetimeLocalInput(auction.start_at) %>"
         required
       />
     </label>
     <label>
-      Ends at
+      Ends at (SAST)
       <input
         type="datetime-local"
         name="endAt"
-        value="<%= new Date(auction.end_at).toISOString().slice(0, 16) %>"
+        value="<%= formatForDatetimeLocalInput(auction.end_at) %>"
         required
       />
     </label>
+    <p class="muted full-row upload-help">
+      All times are interpreted as South African Standard Time (UTC+02:00).
+    </p>
     <label class="full-row">
       Description
       <textarea name="description" rows="3"><%= auction.description || "" %></textarea>

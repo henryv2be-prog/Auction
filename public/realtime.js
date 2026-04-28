@@ -89,7 +89,7 @@ function applyDetailUpdate(root, payload) {
     row.innerHTML =
       '<td data-label="Bidder">' + escapeHtml(payload.latestBid.bidderName) + "</td>" +
       '<td data-label="Amount">' + formatCurrency(payload.latestBid.amount) + "</td>" +
-      '<td data-label="Time">' + new Date(payload.latestBid.createdAt).toLocaleString() + "</td>";
+      '<td data-label="Time">' + formatSastDateTime(payload.latestBid.createdAt) + "</td>";
     bidTableBodyEl.prepend(row);
     while (bidTableBodyEl.children.length > 20) {
       bidTableBodyEl.removeChild(bidTableBodyEl.lastElementChild);
@@ -161,13 +161,13 @@ function applyAuctionUpdate(payload, context) {
 
     var startEl = scope.querySelector("[data-auction-start]");
     if (startEl && payload.startAt) {
-      startEl.textContent = new Date(payload.startAt).toLocaleString();
+      startEl.textContent = formatSastDateTime(payload.startAt);
       startEl.setAttribute("data-iso", payload.startAt);
     }
 
     var endEl = scope.querySelector("[data-auction-end]");
     if (endEl && payload.endAt) {
-      endEl.textContent = new Date(payload.endAt).toLocaleString();
+      endEl.textContent = formatSastDateTime(payload.endAt);
       endEl.setAttribute("data-iso", payload.endAt);
     }
 
@@ -316,6 +316,33 @@ function setPhaseBadge(element, phase) {
 
 function formatCurrency(value) {
   return "R " + Number(value).toFixed(2);
+}
+
+var sastFormatter = (function () {
+  try {
+    return new Intl.DateTimeFormat("en-ZA", {
+      timeZone: "Africa/Johannesburg",
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
+  } catch (e) {
+    return null;
+  }
+})();
+
+function formatSastDateTime(value) {
+  if (!value) return "";
+  var date = value instanceof Date ? value : new Date(value);
+  if (isNaN(date.getTime())) return "";
+  if (sastFormatter) {
+    return sastFormatter.format(date);
+  }
+  return date.toLocaleString();
 }
 
 function escapeHtml(value) {

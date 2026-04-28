@@ -29,11 +29,11 @@
       <textarea name="description" rows="4" required><%= asset.description %></textarea>
     </label>
     <label>
-      Auction ends at
+      Auction ends at (SAST)
       <input
         type="datetime-local"
         name="endAt"
-        value="<%= new Date(asset.end_at).toISOString().slice(0, 16) %>"
+        value="<%= formatForDatetimeLocalInput(asset.end_at) %>"
         required
       />
     </label>

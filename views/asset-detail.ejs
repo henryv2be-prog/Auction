@@ -40,8 +40,8 @@
         </dd>
       </div>
       <div>
-        <dt>Auction Ends</dt>
-        <dd><%= new Date(asset.end_at).toLocaleString() %></dd>
+        <dt>Auction Ends (SAST)</dt>
+        <dd><%= formatSastDateTime(asset.end_at) %></dd>
       </div>
     </dl>
 
@@ -176,7 +176,7 @@
           <tr>
             <td data-label="Bidder"><%= bid.bidder_name %></td>
             <td data-label="Amount"><%= formatCurrency(bid.amount) %></td>
-            <td data-label="Time"><%= new Date(bid.created_at).toLocaleString() %></td>
+            <td data-label="Time"><%= formatSastDateTime(bid.created_at) %></td>
           </tr>
         <% }) %>
       </tbody>

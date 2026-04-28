@@ -13,6 +13,12 @@ const bcrypt = require("bcryptjs");
 const { initDb, getDb } = require("./db");
 const { resolveSessionDbPath, resolveUploadsDir } = require("./storage");
 const { requireRole } = require("./middleware/auth");
+const {
+  parseSastInputToUtc,
+  formatSastDateTime,
+  formatForDatetimeLocalInput,
+  SAST_TIMEZONE
+} = require("./time");
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -141,7 +147,10 @@ function isClientAbortError(error) {
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.locals.formatCurrency = formatCurrency;
-app.locals.assetVersion = process.env.ASSET_VERSION || "20260428k";
+app.locals.formatSastDateTime = formatSastDateTime;
+app.locals.formatForDatetimeLocalInput = formatForDatetimeLocalInput;
+app.locals.SAST_TIMEZONE = SAST_TIMEZONE;
+app.locals.assetVersion = process.env.ASSET_VERSION || "20260428l";
 
 const staticAssetOptions = {
   etag: false,
@@ -560,7 +569,7 @@ app.post("/assets/:id/bid", requireRole("user"), async (req, res, next) => {
       return renderAssetWithError(
         res,
         assetId,
-        `Bidding opens at ${auctionStartsAt.toLocaleString()}.`
+        `Bidding opens at ${formatSastDateTime(auctionStartsAt)} (SAST).`
       );
     }
 
@@ -1240,8 +1249,8 @@ function validateAuctionFields(body) {
   const name = String(body.name || "").trim();
   const description = String(body.description || "").trim();
   const status = String(body.status || "draft").trim().toLowerCase();
-  const startAt = new Date(body.startAt);
-  const endAt = new Date(body.endAt);
+  const startAt = parseSastInputToUtc(body.startAt);
+  const endAt = parseSastInputToUtc(body.endAt);
 
   if (!name) {
     throw new ValidationError("Auction name is required.");
@@ -1249,8 +1258,8 @@ function validateAuctionFields(body) {
   if (!["draft", "open", "closed"].includes(status)) {
     throw new ValidationError("Invalid auction status.");
   }
-  if (Number.isNaN(startAt.getTime()) || Number.isNaN(endAt.getTime())) {
-    throw new ValidationError("Auction start and end dates are required.");
+  if (!startAt || !endAt) {
+    throw new ValidationError("Auction start and end dates are required (entered in SAST).");
   }
   if (endAt <= startAt) {
     throw new ValidationError("Auction end date must be after start date.");
@@ -1287,12 +1296,12 @@ function validateAssetFields(body) {
 function validateAssetEditFields(body) {
   const base = validateAssetFields(body);
   const status = String(body.status || "").trim().toLowerCase();
-  const endAt = new Date(body.endAt);
+  const endAt = parseSastInputToUtc(body.endAt);
 
   if (!["open", "closed"].includes(status)) {
     throw new ValidationError("Asset status must be open or closed.");
   }
-  if (Number.isNaN(endAt.getTime())) {
+  if (!endAt) {
     throw new ValidationError("Asset end date is invalid.");
   }
 
