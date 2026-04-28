@@ -99,6 +99,15 @@ app.locals.formatCurrency = formatCurrency;
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/uploads", express.static(uploadsDir));
+app.use((req, res, next) => {
+  // Force fresh asset fetches on mobile browsers after rapid UI iterations.
+  if (/\.(css|js)$/.test(req.path)) {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+  }
+  next();
+});
 
 io.on("connection", (socket) => {
   socket.on("asset:subscribe", (assetId) => {

@@ -4,7 +4,42 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title><%= title %> | Auction Platform</title>
-  <link rel="stylesheet" href="/styles.css?v=20260428b" />
+  <link rel="stylesheet" href="/styles.css?v=20260428c" />
+  <script>
+    (function forceFreshClientAssets() {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      window.addEventListener("load", function clearLegacyCaches() {
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker
+            .getRegistrations()
+            .then(function (registrations) {
+              return Promise.all(
+                registrations.map(function (registration) {
+                  return registration.unregister();
+                })
+              );
+            })
+            .catch(function () {});
+        }
+
+        if ("caches" in window) {
+          caches
+            .keys()
+            .then(function (cacheNames) {
+              return Promise.all(
+                cacheNames.map(function (cacheName) {
+                  return caches.delete(cacheName);
+                })
+              );
+            })
+            .catch(function () {});
+        }
+      });
+    })();
+  </script>
 </head>
 <body>
   <header class="site-header">
