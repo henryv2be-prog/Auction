@@ -43,7 +43,7 @@
     <p>No auctions created yet.</p>
   <% } else { %>
     <div class="table-wrap">
-      <table>
+      <table class="table">
         <thead>
           <tr>
             <th>Name</th>
@@ -57,23 +57,25 @@
         <tbody>
           <% auctions.forEach((auction) => { %>
             <tr>
-              <td>
+              <td data-label="Name">
                 <strong><%= auction.name %></strong>
                 <% if (auction.description) { %>
                   <div class="subtle"><%= auction.description %></div>
                 <% } %>
               </td>
-              <td><span class="status <%= auction.status %>"><%= auction.status %></span></td>
-              <td><%= auction.asset_count %></td>
-              <td><%= new Date(auction.start_at).toLocaleString() %></td>
-              <td><%= new Date(auction.end_at).toLocaleString() %></td>
-              <td class="actions-cell">
-                <a class="btn btn-secondary" href="/admin/auctions/<%= auction.id %>/edit">Manage</a>
-                <% if (auction.status !== "closed") { %>
-                  <form action="/admin/auctions/<%= auction.id %>/close" method="post" class="inline-form">
-                    <button type="submit" class="btn btn-secondary">Close</button>
-                  </form>
-                <% } %>
+              <td data-label="Status"><span class="status <%= auction.status %>"><%= auction.status %></span></td>
+              <td data-label="Assets"><%= auction.asset_count %></td>
+              <td data-label="Starts"><%= new Date(auction.start_at).toLocaleString() %></td>
+              <td data-label="Ends"><%= new Date(auction.end_at).toLocaleString() %></td>
+              <td data-label="Actions">
+                <div class="actions-cell">
+                  <a class="btn btn-secondary btn-sm" href="/admin/auctions/<%= auction.id %>/edit">Manage</a>
+                  <% if (auction.status !== "closed") { %>
+                    <form action="/admin/auctions/<%= auction.id %>/close" method="post" class="inline-form">
+                      <button type="submit" class="btn btn-secondary btn-sm">Close</button>
+                    </form>
+                  <% } %>
+                </div>
               </td>
             </tr>
           <% }) %>

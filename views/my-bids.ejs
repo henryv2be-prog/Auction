@@ -18,13 +18,13 @@
       <tbody>
         <% bids.forEach((bid) => { %>
           <tr>
-            <td>
+            <td data-label="Asset">
               <a href="/assets/<%= bid.asset_id %>"><%= bid.title %></a>
             </td>
-            <td><%= formatCurrency(bid.amount) %></td>
-            <td><%= formatCurrency(bid.current_price) %></td>
-            <td><span class="pill pill-<%= bid.status %>"><%= bid.status %></span></td>
-            <td><%= new Date(bid.created_at).toLocaleString() %></td>
+            <td data-label="Your Bid"><%= formatCurrency(bid.amount) %></td>
+            <td data-label="Current Price"><%= formatCurrency(bid.current_price) %></td>
+            <td data-label="Status"><span class="pill pill-<%= bid.status %>"><%= bid.status %></span></td>
+            <td data-label="Placed"><%= new Date(bid.created_at).toLocaleString() %></td>
           </tr>
         <% }) %>
       </tbody>

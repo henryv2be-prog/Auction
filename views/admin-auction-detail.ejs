@@ -94,7 +94,7 @@
     <p>No assets in this auction yet.</p>
   <% } else { %>
     <div class="table-wrap">
-      <table>
+      <table class="table">
         <thead>
           <tr>
             <th>ID</th>
@@ -108,16 +108,18 @@
         <tbody>
           <% assets.forEach((asset) => { %>
             <tr>
-              <td><%= asset.id %></td>
-              <td><a href="/assets/<%= asset.id %>"><%= asset.title %></a></td>
-              <td><%= asset.status %></td>
-              <td><%= formatCurrency(asset.current_price) %></td>
-              <td><%= asset.bid_count %></td>
-              <td>
-                <a class="btn btn-secondary" href="/admin/assets/<%= asset.id %>/edit">Edit</a>
-                <form action="/admin/assets/<%= asset.id %>/remove" method="post" class="inline-form">
-                  <button type="submit" class="btn btn-secondary">Remove</button>
-                </form>
+              <td data-label="ID"><%= asset.id %></td>
+              <td data-label="Title"><a href="/assets/<%= asset.id %>"><%= asset.title %></a></td>
+              <td data-label="Status"><span class="status <%= asset.status %>"><%= asset.status %></span></td>
+              <td data-label="Current Price"><%= formatCurrency(asset.current_price) %></td>
+              <td data-label="Bids"><%= asset.bid_count %></td>
+              <td data-label="Actions">
+                <div class="actions-cell">
+                  <a class="btn btn-secondary btn-sm" href="/admin/assets/<%= asset.id %>/edit">Edit</a>
+                  <form action="/admin/assets/<%= asset.id %>/remove" method="post" class="inline-form">
+                    <button type="submit" class="btn btn-secondary btn-sm">Remove</button>
+                  </form>
+                </div>
               </td>
             </tr>
           <% }) %>

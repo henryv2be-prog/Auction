@@ -88,10 +88,23 @@
   </script>
 </head>
 <body>
-  <header class="site-header">
+  <header class="site-header" data-site-header data-nav-open="false">
     <div class="container header-row">
-      <a class="brand" href="/">Auction Platform</a>
-      <nav class="nav-links">
+      <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true">A</span>
+        <span class="brand-name">Auction Platform</span>
+      </a>
+      <button
+        type="button"
+        class="nav-toggle"
+        data-nav-toggle
+        aria-controls="primary-nav"
+        aria-expanded="false"
+        aria-label="Toggle navigation"
+      >
+        <span class="nav-toggle-icon" aria-hidden="true"></span>
+      </button>
+      <nav id="primary-nav" class="nav-links" aria-label="Primary">
         <a href="/assets">Auctions</a>
         <% if (user) { %>
           <% if (user.role === "admin") { %>
@@ -100,17 +113,43 @@
           <% } else { %>
             <a href="/my-bids">My Bids</a>
           <% } %>
-          <span class="nav-user"><%= user.name %> (<%= user.role %>)</span>
-          <form action="/logout" method="post" class="inline-form">
-            <button type="submit" class="btn btn-secondary">Logout</button>
-          </form>
+          <span class="nav-user"><%= user.name %> · <%= user.role %></span>
+          <div class="nav-actions">
+            <form action="/logout" method="post" class="inline-form">
+              <button type="submit" class="btn btn-secondary btn-sm">Logout</button>
+            </form>
+          </div>
         <% } else { %>
-          <a href="/login">Login</a>
-          <a href="/register">Register</a>
+          <div class="nav-actions">
+            <a class="btn btn-secondary btn-sm" href="/login">Login</a>
+            <a class="btn btn-sm" href="/register">Register</a>
+          </div>
         <% } %>
       </nav>
     </div>
   </header>
+  <script>
+    (function setupMobileNavToggle() {
+      var header = document.querySelector("[data-site-header]");
+      var toggle = document.querySelector("[data-nav-toggle]");
+      if (!header || !toggle) {
+        return;
+      }
+      function setOpen(isOpen) {
+        header.setAttribute("data-nav-open", isOpen ? "true" : "false");
+        toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      }
+      toggle.addEventListener("click", function () {
+        var open = header.getAttribute("data-nav-open") === "true";
+        setOpen(!open);
+      });
+      window.addEventListener("resize", function () {
+        if (window.matchMedia("(min-width: 768px)").matches) {
+          setOpen(false);
+        }
+      });
+    })();
+  </script>
   <main class="container">
     <% if (notice) { %>
       <div class="alert alert-success"><%= notice %></div>

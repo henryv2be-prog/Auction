@@ -66,9 +66,9 @@ function applyDetailUpdate(root, payload) {
   if (payload.latestBid && bidTableBodyEl) {
     const row = document.createElement("tr");
     row.innerHTML = `
-      <td>${escapeHtml(payload.latestBid.bidderName)}</td>
-      <td>${formatCurrency(payload.latestBid.amount)}</td>
-      <td>${new Date(payload.latestBid.createdAt).toLocaleString()}</td>
+      <td data-label="Bidder">${escapeHtml(payload.latestBid.bidderName)}</td>
+      <td data-label="Amount">${formatCurrency(payload.latestBid.amount)}</td>
+      <td data-label="Time">${new Date(payload.latestBid.createdAt).toLocaleString()}</td>
     `;
     bidTableBodyEl.prepend(row);
     while (bidTableBodyEl.children.length > 20) {

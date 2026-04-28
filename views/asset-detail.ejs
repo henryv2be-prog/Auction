@@ -174,9 +174,9 @@
       <tbody id="recent-bids-body" data-bids-body>
         <% bids.forEach((bid) => { %>
           <tr>
-            <td><%= bid.bidder_name %></td>
-            <td><%= formatCurrency(bid.amount) %></td>
-            <td><%= new Date(bid.created_at).toLocaleString() %></td>
+            <td data-label="Bidder"><%= bid.bidder_name %></td>
+            <td data-label="Amount"><%= formatCurrency(bid.amount) %></td>
+            <td data-label="Time"><%= new Date(bid.created_at).toLocaleString() %></td>
           </tr>
         <% }) %>
       </tbody>
