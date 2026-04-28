@@ -11,32 +11,78 @@
         return;
       }
 
-      window.addEventListener("load", function clearLegacyCaches() {
+      function cleanupLegacyCaches() {
+        const tasks = [];
+
         if ("serviceWorker" in navigator) {
-          navigator.serviceWorker
-            .getRegistrations()
-            .then(function (registrations) {
-              return Promise.all(
-                registrations.map(function (registration) {
-                  return registration.unregister();
-                })
-              );
-            })
-            .catch(function () {});
+          tasks.push(
+            navigator.serviceWorker
+              .getRegistrations()
+              .then(function (registrations) {
+                return Promise.all(
+                  registrations.map(function (registration) {
+                    return registration.unregister();
+                  })
+                );
+              })
+              .catch(function () {})
+          );
         }
 
         if ("caches" in window) {
-          caches
-            .keys()
-            .then(function (cacheNames) {
-              return Promise.all(
-                cacheNames.map(function (cacheName) {
-                  return caches.delete(cacheName);
-                })
-              );
-            })
-            .catch(function () {});
+          tasks.push(
+            caches
+              .keys()
+              .then(function (cacheNames) {
+                return Promise.all(
+                  cacheNames.map(function (cacheName) {
+                    return caches.delete(cacheName);
+                  })
+                );
+              })
+              .catch(function () {})
+          );
         }
+
+        return Promise.all(tasks);
+      }
+
+      function readStoredVersion(cacheKey) {
+        try {
+          return window.localStorage.getItem(cacheKey);
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function writeStoredVersion(cacheKey, value) {
+        try {
+          window.localStorage.setItem(cacheKey, value);
+        } catch (error) {
+          // ignore storage write failures in strict mobile privacy modes
+        }
+      }
+
+      window.addEventListener("load", function () {
+        const cacheVersion = "<%= assetVersion %>";
+        const cacheKey = "auction-assets-version";
+        const previousVersion = readStoredVersion(cacheKey);
+        const url = new URL(window.location.href);
+        const currentUrlVersion = url.searchParams.get("cv");
+        const hasCurrentVersionTag = currentUrlVersion === cacheVersion;
+
+        if (previousVersion !== cacheVersion || !hasCurrentVersionTag) {
+          cleanupLegacyCaches().finally(function () {
+            writeStoredVersion(cacheKey, cacheVersion);
+            if (!hasCurrentVersionTag) {
+              url.searchParams.set("cv", cacheVersion);
+              window.location.replace(url.toString());
+            }
+          });
+          return;
+        }
+
+        cleanupLegacyCaches();
       });
     })();
   </script>

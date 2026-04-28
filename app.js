@@ -65,6 +65,10 @@ function applyNoStoreHeaders(res) {
   res.set("Expires", "0");
 }
 
+function shouldDisableBrowserPageCache(reqPath) {
+  return !/\.[a-z0-9]+$/i.test(reqPath || "");
+}
+
 const randFormatter = new Intl.NumberFormat("en-ZA", {
   style: "currency",
   currency: "ZAR"
@@ -101,7 +105,7 @@ function adminAssetUpload(req, res, next) {
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.locals.formatCurrency = formatCurrency;
-app.locals.assetVersion = process.env.ASSET_VERSION || "20260428d";
+app.locals.assetVersion = process.env.ASSET_VERSION || "20260428e";
 
 const staticAssetOptions = {
   etag: false,
@@ -124,6 +128,12 @@ const uploadStaticOptions = {
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, "public"), staticAssetOptions));
 app.use("/uploads", express.static(uploadsDir, uploadStaticOptions));
+app.use((req, res, next) => {
+  if ((req.method === "GET" || req.method === "HEAD") && shouldDisableBrowserPageCache(req.path)) {
+    applyNoStoreHeaders(res);
+  }
+  next();
+});
 
 io.on("connection", (socket) => {
   socket.on("asset:subscribe", (assetId) => {
