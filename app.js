@@ -108,6 +108,34 @@ function adminAssetUpload(req, res, next) {
   upload.array("media", maxMediaFiles)(req, res, next);
 }
 
+const maxAuctionCoverMb = toPositiveInteger(process.env.MAX_AUCTION_COVER_MB, 12);
+const auctionCoverUpload = multer({
+  storage: multer.diskStorage({
+    destination(req, file, callback) {
+      callback(null, uploadsDir);
+    },
+    filename(req, file, callback) {
+      const extension = getSafeFileExtension(file.originalname);
+      callback(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`);
+    }
+  }),
+  limits: {
+    files: 1,
+    fileSize: maxAuctionCoverMb * 1024 * 1024
+  },
+  fileFilter(req, file, callback) {
+    if (typeof file.mimetype === "string" && file.mimetype.startsWith("image/")) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error("Feature image must be an image file."));
+  }
+});
+
+function auctionCoverSingle(req, res, next) {
+  auctionCoverUpload.single("featureImage")(req, res, next);
+}
+
 function wantsJson(req) {
   if (!req) {
     return false;
@@ -150,7 +178,8 @@ app.locals.formatCurrency = formatCurrency;
 app.locals.formatSastDateTime = formatSastDateTime;
 app.locals.formatForDatetimeLocalInput = formatForDatetimeLocalInput;
 app.locals.SAST_TIMEZONE = SAST_TIMEZONE;
-app.locals.assetVersion = process.env.ASSET_VERSION || "20260428o";
+app.locals.assetVersion = process.env.ASSET_VERSION || "20260428p";
+app.locals.maxAuctionCoverMb = maxAuctionCoverMb;
 
 const staticAssetOptions = {
   etag: false,
@@ -380,6 +409,7 @@ app.get("/assets", async (req, res, next) => {
               a.start_at,
               a.end_at,
               a.status,
+              a.feature_image_path,
               (SELECT COUNT(*) FROM assets x WHERE x.auction_id = a.id) AS asset_count
        FROM auctions a
        ORDER BY a.start_at ASC`
@@ -391,13 +421,14 @@ app.get("/assets", async (req, res, next) => {
     const nowMs = Date.now();
     for (const auction of auctions) {
       const phase = deriveAuctionPhase(auction, nowMs);
-      auction.phase = phase;
+      const enriched = attachFeature(auction);
+      enriched.phase = phase;
       if (phase === "closed") {
-        pastAuctions.push(auction);
+        pastAuctions.push(enriched);
       } else if (phase === "live") {
-        liveAuctions.push(auction);
+        liveAuctions.push(enriched);
       } else {
-        upcomingAuctions.push(auction);
+        upcomingAuctions.push(enriched);
       }
     }
 
@@ -429,7 +460,7 @@ app.get("/auctions/:id", async (req, res, next) => {
     }
 
     const auction = await db.get(
-      `SELECT id, title AS name, description, start_at, end_at, status
+      `SELECT id, title AS name, description, start_at, end_at, status, feature_image_path
        FROM auctions
        WHERE id = ?`,
       auctionId
@@ -441,6 +472,7 @@ app.get("/auctions/:id", async (req, res, next) => {
       });
     }
     auction.phase = deriveAuctionPhase(auction);
+    const featureImageUrl = mapAuctionFeatureImageUrl(auction.feature_image_path);
 
     const assets = await db.all(
       `SELECT a.*,
@@ -482,7 +514,8 @@ app.get("/auctions/:id", async (req, res, next) => {
     return res.render("auction-detail", {
       title: auction.name,
       auction,
-      assets: assetsWithThumbnail
+      assets: assetsWithThumbnail,
+      featureImageUrl
     });
   } catch (error) {
     return next(error);
@@ -647,7 +680,10 @@ app.get("/admin/auctions", requireRole("admin"), async (req, res, next) => {
   try {
     const auctions = await listAuctionsWithCounts();
     const auctionsWithPhase = auctions.map((row) =>
-      Object.assign({}, row, { phase: deriveAuctionPhase(row) })
+      Object.assign({}, row, {
+        phase: deriveAuctionPhase(row),
+        feature_image_url: mapAuctionFeatureImageUrl(row.feature_image_path)
+      })
     );
     return res.render("admin-auctions", {
       title: "Auction Management",
@@ -699,13 +735,13 @@ app.get("/admin/auctions/:id/edit", requireRole("admin"), async (req, res, next)
       });
     }
 
-    const assets = await listAuctionAssets(auctionId);
     const auctionPhase = deriveAuctionPhase(auction);
-    return res.render("admin-auction-detail", {
-      title: `Manage ${auction.name}`,
+    const featureImageUrl = mapAuctionFeatureImageUrl(auction.feature_image_path);
+    return res.render("admin-auction-settings", {
+      title: `Settings · ${auction.name}`,
       auction,
       auctionPhase,
-      assets,
+      featureImageUrl,
       formError: null
     });
   } catch (error) {
@@ -713,66 +749,92 @@ app.get("/admin/auctions/:id/edit", requireRole("admin"), async (req, res, next)
   }
 });
 
-app.post("/admin/auctions/:id/edit", requireRole("admin"), async (req, res, next) => {
-  const auctionId = Number(req.params.id);
+app.post(
+  "/admin/auctions/:id/edit",
+  requireRole("admin"),
+  auctionCoverSingle,
+  async (req, res, next) => {
+    const auctionId = Number(req.params.id);
+    const uploadedFile = req.file;
+    try {
+      const existingAuction = await getAuctionById(auctionId);
+      if (!existingAuction) {
+        await deleteFilesIfPresent(uploadedFile ? [uploadedFile] : []);
+        return res.status(404).render("error", {
+          title: "Not Found",
+          message: "Auction not found."
+        });
+      }
+
+      const data = validateAuctionFields(req.body);
+      const removeFeature = String(req.body.removeFeatureImage || "").toLowerCase() === "1";
+      const db = getDb();
+
+      let nextFeaturePath = existingAuction.feature_image_path || null;
+
+      if (removeFeature) {
+        if (existingAuction.feature_image_path) {
+          await deleteMediaFilesByRows([{ file_path: existingAuction.feature_image_path }]);
+        }
+        nextFeaturePath = null;
+      }
+
+      if (uploadedFile) {
+        if (existingAuction.feature_image_path) {
+          await deleteMediaFilesByRows([{ file_path: existingAuction.feature_image_path }]);
+        }
+        nextFeaturePath = uploadedFile.filename;
+      }
+
+      await db.run(
+        `UPDATE auctions
+         SET title = ?, description = ?, status = ?, start_at = ?, end_at = ?, feature_image_path = ?
+         WHERE id = ?`,
+        data.name,
+        data.description,
+        data.status,
+        data.startAt.toISOString(),
+        data.endAt.toISOString(),
+        nextFeaturePath,
+        auctionId
+      );
+      await syncAuctionAssetsWithAuctionWindow(auctionId);
+      await detectAuctionPhaseTransitions();
+      await broadcastAuctionUpdate(auctionId);
+
+      req.session.notice = "Auction settings saved.";
+      return res.redirect(`/admin/auctions/${auctionId}/edit`);
+    } catch (error) {
+      await deleteFilesIfPresent(uploadedFile ? [uploadedFile] : []);
+      if (error instanceof ValidationError) {
+        return renderAdminAuctionSettingsWithError(res, auctionId, error.message, 400);
+      }
+      return next(error);
+    }
+  }
+);
+
+app.get("/admin/auctions/:id/assets", requireRole("admin"), async (req, res, next) => {
   try {
-    const existingAuction = await getAuctionById(auctionId);
-    if (!existingAuction) {
+    const auctionId = Number(req.params.id);
+    const auction = await getAuctionById(auctionId);
+    if (!auction) {
       return res.status(404).render("error", {
         title: "Not Found",
         message: "Auction not found."
       });
     }
 
-    const data = validateAuctionFields(req.body);
-    const db = getDb();
-    await db.run(
-      `UPDATE auctions
-       SET title = ?, description = ?, status = ?, start_at = ?, end_at = ?
-       WHERE id = ?`,
-      data.name,
-      data.description,
-      data.status,
-      data.startAt.toISOString(),
-      data.endAt.toISOString(),
-      auctionId
-    );
-    await syncAuctionAssetsWithAuctionWindow(auctionId);
-    await detectAuctionPhaseTransitions();
-    await broadcastAuctionUpdate(auctionId);
-
-    req.session.notice = "Auction updated.";
-    return res.redirect(`/admin/auctions/${auctionId}/edit`);
+    const assets = await listAuctionAssets(auctionId);
+    const auctionPhase = deriveAuctionPhase(auction);
+    return res.render("admin-auction-assets", {
+      title: `Items · ${auction.name}`,
+      auction,
+      auctionPhase,
+      assets,
+      formError: null
+    });
   } catch (error) {
-    if (error instanceof ValidationError) {
-      return renderAdminAuctionDetailWithError(res, auctionId, error.message, 400);
-    }
-    return next(error);
-  }
-});
-
-app.post("/admin/auctions/:id/close", requireRole("admin"), async (req, res, next) => {
-  const auctionId = Number(req.params.id);
-  try {
-    const db = getDb();
-    await db.run("BEGIN IMMEDIATE TRANSACTION");
-    await db.run("UPDATE auctions SET status = 'closed' WHERE id = ?", auctionId);
-    const assets = await db.all("SELECT id FROM assets WHERE auction_id = ?", auctionId);
-    await db.run("UPDATE assets SET status = 'closed' WHERE auction_id = ?", auctionId);
-    await db.run("COMMIT");
-
-    await Promise.all(assets.map((asset) => broadcastAssetUpdate(asset.id)));
-    await broadcastAuctionUpdate(auctionId);
-    await detectAuctionPhaseTransitions();
-
-    req.session.notice = "Auction closed successfully.";
-    return res.redirect(`/admin/auctions/${auctionId}/edit`);
-  } catch (error) {
-    try {
-      await getDb().run("ROLLBACK");
-    } catch (rollbackError) {
-      // no-op
-    }
     return next(error);
   }
 });
@@ -825,7 +887,7 @@ app.post(
       }
       await broadcastAuctionUpdate(auctionId);
 
-      const redirectTo = `/admin/auctions/${auctionId}/edit`;
+      const redirectTo = `/admin/auctions/${auctionId}/assets`;
       req.session.notice = "Asset added to auction.";
       if (wantJson) {
         return jsonOk(res, {
@@ -841,7 +903,7 @@ app.post(
         if (wantJson) {
           return jsonError(res, 400, error.message);
         }
-        return renderAdminAuctionDetailWithError(res, auctionId, error.message, 400);
+        return renderAdminAuctionAssetsWithError(res, auctionId, error.message, 400);
       }
       if (wantJson && !res.headersSent) {
         const message =
@@ -858,6 +920,32 @@ app.post(
     }
   }
 );
+
+app.post("/admin/auctions/:id/close", requireRole("admin"), async (req, res, next) => {
+  const auctionId = Number(req.params.id);
+  try {
+    const db = getDb();
+    await db.run("BEGIN IMMEDIATE TRANSACTION");
+    await db.run("UPDATE auctions SET status = 'closed' WHERE id = ?", auctionId);
+    const assets = await db.all("SELECT id FROM assets WHERE auction_id = ?", auctionId);
+    await db.run("UPDATE assets SET status = 'closed' WHERE auction_id = ?", auctionId);
+    await db.run("COMMIT");
+
+    await Promise.all(assets.map((asset) => broadcastAssetUpdate(asset.id)));
+    await broadcastAuctionUpdate(auctionId);
+    await detectAuctionPhaseTransitions();
+
+    req.session.notice = "Auction closed successfully.";
+    return res.redirect(`/admin/auctions/${auctionId}/edit`);
+  } catch (error) {
+    try {
+      await getDb().run("ROLLBACK");
+    } catch (rollbackError) {
+      // no-op
+    }
+    return next(error);
+  }
+});
 
 app.get("/admin/assets/:id/edit", requireRole("admin"), async (req, res, next) => {
   try {
@@ -975,7 +1063,7 @@ app.post("/admin/assets/:id/remove", requireRole("admin"), async (req, res, next
     await broadcastAuctionUpdate(asset.auction_id);
 
     req.session.notice = "Asset removed from auction.";
-    return res.redirect(`/admin/auctions/${asset.auction_id}/edit`);
+    return res.redirect(`/admin/auctions/${asset.auction_id}/assets`);
   } catch (error) {
     return next(error);
   }
@@ -1021,14 +1109,29 @@ app.use((error, req, res, next) => {
     return;
   }
 
-  if (error instanceof multer.MulterError || error.message === "Only image and video files are allowed.") {
+  if (
+    error instanceof multer.MulterError ||
+    error.message === "Only image and video files are allowed." ||
+    error.message === "Feature image must be an image file."
+  ) {
     if (wantsJson(req)) {
       return jsonError(res, 400, buildUploadErrorMessage(error));
     }
-    const auctionIdMatch = req.path.match(/^\/admin\/auctions\/(\d+)\/assets$/);
-    if (auctionIdMatch) {
-      const auctionId = Number(auctionIdMatch[1]);
-      return renderAdminAuctionDetailWithError(res, auctionId, buildUploadErrorMessage(error), 400);
+    const auctionAssetsMatch = req.path.match(/^\/admin\/auctions\/(\d+)\/assets$/);
+    if (auctionAssetsMatch) {
+      const auctionId = Number(auctionAssetsMatch[1]);
+      return renderAdminAuctionAssetsWithError(res, auctionId, buildUploadErrorMessage(error), 400);
+    }
+    const auctionEditMatch = req.path.match(/^\/admin\/auctions\/(\d+)\/edit$/);
+    if (auctionEditMatch) {
+      const auctionId = Number(auctionEditMatch[1]);
+      const msg =
+        error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE"
+          ? `Feature image must be smaller than ${maxAuctionCoverMb} MB.`
+          : error.message === "Feature image must be an image file."
+            ? "Feature image must be a JPG, PNG, WebP, or other image file."
+            : buildUploadErrorMessage(error);
+      return renderAdminAuctionSettingsWithError(res, auctionId, msg, 400);
     }
     const assetEditMatch = req.path.match(/^\/admin\/assets\/(\d+)\/edit$/);
     if (assetEditMatch) {
@@ -1089,7 +1192,26 @@ async function renderAdminAuctionsWithError(res, formError, statusCode) {
   });
 }
 
-async function renderAdminAuctionDetailWithError(res, auctionId, formError, statusCode) {
+async function renderAdminAuctionSettingsWithError(res, auctionId, formError, statusCode) {
+  const auction = await getAuctionById(auctionId);
+  if (!auction) {
+    return res.status(404).render("error", {
+      title: "Not Found",
+      message: "Auction not found."
+    });
+  }
+  const auctionPhase = deriveAuctionPhase(auction);
+  const featureImageUrl = mapAuctionFeatureImageUrl(auction.feature_image_path);
+  return res.status(statusCode).render("admin-auction-settings", {
+    title: `Settings · ${auction.name}`,
+    auction,
+    auctionPhase,
+    featureImageUrl,
+    formError
+  });
+}
+
+async function renderAdminAuctionAssetsWithError(res, auctionId, formError, statusCode) {
   const auction = await getAuctionById(auctionId);
   if (!auction) {
     return res.status(404).render("error", {
@@ -1099,8 +1221,8 @@ async function renderAdminAuctionDetailWithError(res, auctionId, formError, stat
   }
   const assets = await listAuctionAssets(auctionId);
   const auctionPhase = deriveAuctionPhase(auction);
-  return res.status(statusCode).render("admin-auction-detail", {
-    title: `Manage ${auction.name}`,
+  return res.status(statusCode).render("admin-auction-assets", {
+    title: `Items · ${auction.name}`,
     auction,
     auctionPhase,
     assets,
@@ -1337,6 +1459,7 @@ async function listAuctionsWithCounts() {
             a.start_at,
             a.end_at,
             a.status,
+            a.feature_image_path,
             (SELECT COUNT(*) FROM assets s WHERE s.auction_id = a.id) AS asset_count
      FROM auctions a
      ORDER BY a.created_at DESC`
@@ -1371,7 +1494,8 @@ async function getAuctionById(auctionId) {
             description,
             start_at,
             end_at,
-            status
+            status,
+            feature_image_path
      FROM auctions
      WHERE id = ?`,
     auctionId
@@ -1499,6 +1623,13 @@ function mapMediaForView(mediaItem) {
   };
 }
 
+function mapAuctionFeatureImageUrl(storedPath) {
+  if (!storedPath) {
+    return null;
+  }
+  return `/uploads/${encodeURIComponent(storedPath)}`;
+}
+
 async function deleteFilesIfPresent(files) {
   if (!Array.isArray(files) || !files.length) {
     return;
@@ -1538,7 +1669,7 @@ function assetRoomName(assetId) {
 async function broadcastAuctionUpdate(auctionId) {
   const db = getDb();
   const auction = await db.get(
-    `SELECT id, title AS name, description, start_at, end_at, status,
+    `SELECT id, title AS name, description, start_at, end_at, status, feature_image_path,
             (SELECT COUNT(*) FROM assets x WHERE x.auction_id = auctions.id) AS asset_count
      FROM auctions
      WHERE id = ?`,
@@ -1558,6 +1689,7 @@ async function broadcastAuctionUpdate(auctionId) {
     startAt: auction.start_at,
     endAt: auction.end_at,
     assetCount: Number(auction.asset_count) || 0,
+    featureImageUrl: mapAuctionFeatureImageUrl(auction.feature_image_path),
     serverTime: new Date().toISOString()
   };
 

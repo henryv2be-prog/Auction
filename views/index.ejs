@@ -36,39 +36,52 @@
       <div class="grid" data-auction-group-grid>
         <% list.forEach((auction) => { %>
           <article
-            class="card auction-card"
+            class="card auction-card auction-card-rich<%= auction.feature_image_url ? '' : ' auction-card-no-image' %>"
             data-auction-card="<%= auction.id %>"
             data-auction-phase="<%= auction.phase %>"
           >
-            <div class="card-header">
-              <h3 data-auction-name><%= auction.name %></h3>
-              <span
-                class="<%= phaseBadgeClass(auction.phase) %>"
-                data-auction-phase-badge
-              ><%= phaseLabel(auction.phase) %></span>
+            <% if (auction.feature_image_url) { %>
+              <a class="auction-card-media" href="/auctions/<%= auction.id %>" aria-hidden="true" tabindex="-1">
+                <img
+                  class="auction-card-cover"
+                  src="<%= auction.feature_image_url %>"
+                  alt=""
+                  loading="lazy"
+                  data-auction-feature-img
+                />
+              </a>
+            <% } %>
+            <div class="auction-card-body">
+              <div class="card-header">
+                <h3 data-auction-name><%= auction.name %></h3>
+                <span
+                  class="<%= phaseBadgeClass(auction.phase) %>"
+                  data-auction-phase-badge
+                ><%= phaseLabel(auction.phase) %></span>
+              </div>
+              <p class="muted" data-auction-description>
+                <%= auction.description || "No description provided." %>
+              </p>
+              <dl class="detail-list">
+                <div>
+                  <dt>Starts (SAST)</dt>
+                  <dd data-auction-start data-iso="<%= auction.start_at %>">
+                    <%= formatSastDateTime(auction.start_at) %>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Ends (SAST)</dt>
+                  <dd data-auction-end data-iso="<%= auction.end_at %>">
+                    <%= formatSastDateTime(auction.end_at) %>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Items</dt>
+                  <dd data-auction-asset-count><%= auction.asset_count %></dd>
+                </div>
+              </dl>
+              <a class="btn" href="/auctions/<%= auction.id %>"><%= ctaLabel %></a>
             </div>
-            <p class="muted" data-auction-description>
-              <%= auction.description || "No description provided." %>
-            </p>
-            <dl class="detail-list">
-              <div>
-                <dt>Starts (SAST)</dt>
-                <dd data-auction-start data-iso="<%= auction.start_at %>">
-                  <%= formatSastDateTime(auction.start_at) %>
-                </dd>
-              </div>
-              <div>
-                <dt>Ends (SAST)</dt>
-                <dd data-auction-end data-iso="<%= auction.end_at %>">
-                  <%= formatSastDateTime(auction.end_at) %>
-                </dd>
-              </div>
-              <div>
-                <dt>Items</dt>
-                <dd data-auction-asset-count><%= auction.asset_count %></dd>
-              </div>
-            </dl>
-            <a class="btn" href="/auctions/<%= auction.id %>"><%= ctaLabel %></a>
           </article>
         <% }) %>
       </div>

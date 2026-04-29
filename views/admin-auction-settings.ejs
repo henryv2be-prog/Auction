@@ -1,0 +1,125 @@
+<%- include("partials/header", { title, user, notice, formError }) %>
+
+<div class="admin-toolbar">
+  <div class="admin-toolbar-inner">
+    <nav class="admin-breadcrumb" aria-label="Admin">
+      <a href="/admin/auctions">Auctions</a>
+      <span aria-hidden="true" class="admin-breadcrumb-sep">/</span>
+      <span class="admin-breadcrumb-current">Settings</span>
+    </nav>
+    <div class="admin-toolbar-title-row">
+      <h1 class="admin-page-title"><%= auction.name %></h1>
+      <% if (typeof auctionPhase !== "undefined" && auctionPhase === "live") { %>
+        <span class="badge badge-live">Live now</span>
+      <% } else if (typeof auctionPhase !== "undefined" && auctionPhase === "upcoming") { %>
+        <span class="badge badge-upcoming">Upcoming</span>
+      <% } else { %>
+        <span class="badge badge-closed">Ended</span>
+      <% } %>
+    </div>
+    <% if (auction.description) { %>
+      <p class="admin-toolbar-lead"><%= auction.description %></p>
+    <% } %>
+    <dl class="admin-summary-strip">
+      <div>
+        <dt>Catalogue</dt>
+        <dd><%= auction.status %></dd>
+      </div>
+      <div>
+        <dt>Starts (SAST)</dt>
+        <dd><%= formatSastDateTime(auction.start_at) %></dd>
+      </div>
+      <div>
+        <dt>Ends (SAST)</dt>
+        <dd><%= formatSastDateTime(auction.end_at) %></dd>
+      </div>
+    </dl>
+    <div class="admin-toolbar-actions admin-toolbar-actions-split">
+      <div class="admin-nav-pills">
+        <span class="admin-nav-pill admin-nav-pill-active">Settings</span>
+        <a class="admin-nav-pill" href="/admin/auctions/<%= auction.id %>/assets">Items &amp; listings</a>
+      </div>
+      <div class="admin-toolbar-actions">
+        <a class="btn btn-secondary btn-sm" href="/auctions/<%= auction.id %>">Public page</a>
+        <% if (auction.status !== "closed") { %>
+          <form action="/admin/auctions/<%= auction.id %>/close" method="post" class="inline-form">
+            <button type="submit" class="btn btn-secondary btn-sm">Close auction</button>
+          </form>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="admin-layout admin-layout-single">
+  <section class="admin-panel admin-panel-accent">
+    <div class="admin-panel-head">
+      <h2 class="admin-panel-title">Auction settings</h2>
+      <p class="admin-panel-desc">
+        Name, schedule, catalogue visibility, and the hero image on the main auctions page.
+      </p>
+    </div>
+    <form
+      action="/admin/auctions/<%= auction.id %>/edit"
+      method="post"
+      enctype="multipart/form-data"
+      class="grid-form admin-form-tight"
+    >
+      <label>
+        Name
+        <input type="text" name="name" value="<%= auction.name %>" required />
+      </label>
+      <label>
+        Catalogue status
+        <select name="status" required>
+          <option value="open" <%= auction.status === "open" ? "selected" : "" %>>Open — listed publicly</option>
+          <option value="closed" <%= auction.status === "closed" ? "selected" : "" %>>Closed</option>
+        </select>
+      </label>
+      <label>
+        Starts (SAST)
+        <input
+          type="datetime-local"
+          name="startAt"
+          value="<%= formatForDatetimeLocalInput(auction.start_at) %>"
+          required
+        />
+      </label>
+      <label>
+        Ends (SAST)
+        <input
+          type="datetime-local"
+          name="endAt"
+          value="<%= formatForDatetimeLocalInput(auction.end_at) %>"
+          required
+        />
+      </label>
+      <p class="muted full-row upload-help">Times use SAST (UTC+02:00).</p>
+      <label class="full-row">
+        Description
+        <textarea name="description" rows="3"><%= auction.description || "" %></textarea>
+      </label>
+
+      <div class="full-row admin-feature-block">
+        <label class="admin-feature-label">Feature image</label>
+        <p class="muted upload-help">Shown on the catalogue home and auction page. Images only, up to <%= typeof maxAuctionCoverMb !== "undefined" ? maxAuctionCoverMb : 12 %> MB.</p>
+        <% if (featureImageUrl) { %>
+          <div class="admin-feature-preview">
+            <img src="<%= featureImageUrl %>" alt="" />
+          </div>
+          <label class="admin-checkbox">
+            <input type="checkbox" name="removeFeatureImage" value="1" />
+            Remove current image
+          </label>
+        <% } %>
+        <input type="file" name="featureImage" accept="image/*" />
+      </div>
+
+      <div class="button-row">
+        <button type="submit" class="btn">Save settings</button>
+      </div>
+    </form>
+  </section>
+</div>
+
+<%- include("partials/footer") %>

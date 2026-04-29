@@ -86,12 +86,21 @@ async function initDb() {
 
   await migrateLegacyAssetsToAuctions();
   await maybeShiftLegacyTimesToSast();
+  await migrateAuctionFeatureImageColumn();
 
   await db.exec("CREATE INDEX IF NOT EXISTS idx_assets_auction_id ON assets(auction_id);");
   await db.exec("CREATE INDEX IF NOT EXISTS idx_bids_asset_id ON bids(asset_id);");
   await db.exec("CREATE INDEX IF NOT EXISTS idx_asset_media_asset_id ON asset_media(asset_id);");
 
   return db;
+}
+
+async function migrateAuctionFeatureImageColumn() {
+  const columns = await db.all("PRAGMA table_info(auctions)");
+  const hasFeature = columns.some((column) => column.name === "feature_image_path");
+  if (!hasFeature) {
+    await db.exec("ALTER TABLE auctions ADD COLUMN feature_image_path TEXT;");
+  }
 }
 
 // One-time, opt-in migration. Set SHIFT_LEGACY_TIMES_HOURS=-2 to subtract

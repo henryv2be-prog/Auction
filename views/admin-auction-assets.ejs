@@ -5,10 +5,12 @@
     <nav class="admin-breadcrumb" aria-label="Admin">
       <a href="/admin/auctions">Auctions</a>
       <span aria-hidden="true" class="admin-breadcrumb-sep">/</span>
-      <span class="admin-breadcrumb-current"><%= auction.name %></span>
+      <a href="/admin/auctions/<%= auction.id %>/edit"><%= auction.name %></a>
+      <span aria-hidden="true" class="admin-breadcrumb-sep">/</span>
+      <span class="admin-breadcrumb-current">Items</span>
     </nav>
     <div class="admin-toolbar-title-row">
-      <h1 class="admin-page-title"><%= auction.name %></h1>
+      <h1 class="admin-page-title">Items in “<%= auction.name %>”</h1>
       <% if (typeof auctionPhase !== "undefined" && auctionPhase === "live") { %>
         <span class="badge badge-live">Live now</span>
       <% } else if (typeof auctionPhase !== "undefined" && auctionPhase === "upcoming") { %>
@@ -17,90 +19,35 @@
         <span class="badge badge-closed">Ended</span>
       <% } %>
     </div>
-    <% if (auction.description) { %>
-      <p class="admin-toolbar-lead"><%= auction.description %></p>
-    <% } %>
+    <p class="admin-toolbar-lead muted">Add listings, photos, and pricing for each item. Edit dates and status on each asset.</p>
     <dl class="admin-summary-strip">
       <div>
-        <dt>Catalogue</dt>
-        <dd><%= auction.status %></dd>
-      </div>
-      <div>
-        <dt>Starts (SAST)</dt>
-        <dd><%= formatSastDateTime(auction.start_at) %></dd>
+        <dt>Items</dt>
+        <dd><%= assets.length %></dd>
       </div>
       <div>
         <dt>Ends (SAST)</dt>
         <dd><%= formatSastDateTime(auction.end_at) %></dd>
       </div>
-      <div>
-        <dt>Items</dt>
-        <dd><%= assets.length %></dd>
-      </div>
     </dl>
-    <div class="admin-toolbar-actions">
-      <a class="btn btn-secondary btn-sm" href="/auctions/<%= auction.id %>">View public page</a>
-      <% if (auction.status !== "closed") { %>
-        <form action="/admin/auctions/<%= auction.id %>/close" method="post" class="inline-form">
-          <button type="submit" class="btn btn-secondary btn-sm">Close auction</button>
-        </form>
-      <% } %>
+    <div class="admin-toolbar-actions admin-toolbar-actions-split">
+      <div class="admin-nav-pills">
+        <a class="admin-nav-pill" href="/admin/auctions/<%= auction.id %>/edit">Settings</a>
+        <span class="admin-nav-pill admin-nav-pill-active">Items</span>
+      </div>
+      <div class="admin-toolbar-actions">
+        <a class="btn btn-secondary btn-sm" href="/auctions/<%= auction.id %>">Public catalogue</a>
+      </div>
     </div>
   </div>
 </div>
 
 <div class="admin-layout">
   <div class="admin-layout-main">
-    <section class="admin-panel">
-      <div class="admin-panel-head">
-        <h2 class="admin-panel-title">Auction details</h2>
-        <p class="admin-panel-desc">Name, schedule, and visibility in the catalogue.</p>
-      </div>
-      <form action="/admin/auctions/<%= auction.id %>/edit" method="post" class="grid-form admin-form-tight">
-        <label>
-          Name
-          <input type="text" name="name" value="<%= auction.name %>" required />
-        </label>
-        <label>
-          Catalogue status
-          <select name="status" required>
-            <option value="open" <%= auction.status === "open" ? "selected" : "" %>>Open — listed publicly</option>
-            <option value="closed" <%= auction.status === "closed" ? "selected" : "" %>>Closed</option>
-          </select>
-        </label>
-        <label>
-          Starts (SAST)
-          <input
-            type="datetime-local"
-            name="startAt"
-            value="<%= formatForDatetimeLocalInput(auction.start_at) %>"
-            required
-          />
-        </label>
-        <label>
-          Ends (SAST)
-          <input
-            type="datetime-local"
-            name="endAt"
-            value="<%= formatForDatetimeLocalInput(auction.end_at) %>"
-            required
-          />
-        </label>
-        <p class="muted full-row upload-help">Times use SAST (UTC+02:00).</p>
-        <label class="full-row">
-          Description
-          <textarea name="description" rows="3"><%= auction.description || "" %></textarea>
-        </label>
-        <div class="button-row">
-          <button type="submit" class="btn">Save changes</button>
-        </div>
-      </form>
-    </section>
-
     <section class="admin-panel admin-panel-accent">
       <div class="admin-panel-head">
-        <h2 class="admin-panel-title">Add item to this auction</h2>
-        <p class="admin-panel-desc">Optional photos or video; you can add more later on the asset page.</p>
+        <h2 class="admin-panel-title">Add item</h2>
+        <p class="admin-panel-desc">Optional photos or video on create — add more later from the asset page.</p>
       </div>
       <form
         action="/admin/auctions/<%= auction.id %>/assets"
@@ -134,14 +81,14 @@
     <section class="admin-panel">
       <div class="admin-panel-head admin-panel-head-row">
         <div>
-          <h2 class="admin-panel-title">Items in this auction</h2>
-          <p class="admin-panel-desc"><%= assets.length %> listed</p>
+          <h2 class="admin-panel-title">All items</h2>
+          <p class="admin-panel-desc"><%= assets.length %> in this auction</p>
         </div>
       </div>
       <% if (!assets.length) { %>
         <div class="empty-state admin-empty">
           <p class="admin-empty-title">No items yet</p>
-          <p class="muted">Use the form above to list the first asset.</p>
+          <p class="muted">Use the form above to create the first listing.</p>
         </div>
       <% } else { %>
         <div class="admin-asset-cards">
@@ -182,20 +129,12 @@
     </section>
   </div>
 
-  <aside class="admin-layout-aside" aria-label="Auction tips">
+  <aside class="admin-layout-aside" aria-label="Tips">
     <div class="admin-tip-card">
-      <h3 class="admin-tip-title">Workflow</h3>
-      <ol class="admin-tip-list">
-        <li>Set auction window and status, then save.</li>
-        <li>Add each item with title, price, and description.</li>
-        <li>Open <strong>Edit &amp; media</strong> to attach more photos or trim listings.</li>
-      </ol>
-    </div>
-    <div class="admin-tip-card">
-      <h3 class="admin-tip-title">Quick links</h3>
+      <h3 class="admin-tip-title">Tips</h3>
       <ul class="admin-tip-links">
-        <li><a href="/admin/auctions">All auctions</a></li>
-        <li><a href="/auctions/<%= auction.id %>">Public catalogue</a></li>
+        <li><a href="/admin/auctions/<%= auction.id %>/edit">Auction dates &amp; feature image</a></li>
+        <li><a href="/auctions/<%= auction.id %>">Preview public view</a></li>
       </ul>
     </div>
   </aside>

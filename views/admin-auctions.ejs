@@ -6,7 +6,7 @@
       <span class="admin-breadcrumb-current">Auctions</span>
     </nav>
     <p class="admin-toolbar-lead">
-      Create auctions, set schedules in SAST, then open each auction to add items and media.
+      Create an auction, upload a catalogue hero image in Settings, then manage items on the Items tab.
     </p>
   </div>
 </div>
@@ -15,7 +15,7 @@
   <section class="admin-panel admin-panel-accent">
     <div class="admin-panel-head">
       <h2 class="admin-panel-title">New auction</h2>
-      <p class="admin-panel-desc">Use Closed to prepare an auction without listing it; switch to Open when ready.</p>
+      <p class="admin-panel-desc">Use Closed to prepare without listing; switch to Open when ready.</p>
     </div>
     <form action="/admin/auctions" method="post" class="grid-form admin-form-tight">
       <label>
@@ -54,18 +54,25 @@
     <div class="admin-panel-head admin-panel-head-row">
       <div>
         <h2 class="admin-panel-title">Your auctions</h2>
-        <p class="admin-panel-desc">Manage items, pricing, and media inside each auction.</p>
+        <p class="admin-panel-desc">Settings cover dates and hero images; Items is for listings.</p>
       </div>
     </div>
     <% if (!auctions.length) { %>
       <div class="empty-state admin-empty">
         <p class="admin-empty-title">No auctions yet</p>
-        <p class="muted">Create one using the form above, then add assets from the auction page.</p>
+        <p class="muted">Create one above, then open Settings to add a feature image.</p>
       </div>
     <% } else { %>
       <div class="admin-auction-list">
         <% auctions.forEach((auction) => { %>
           <article class="admin-auction-row">
+            <div class="admin-auction-row-thumb">
+              <% if (auction.feature_image_url) { %>
+                <img src="<%= auction.feature_image_url %>" alt="" loading="lazy" />
+              <% } else { %>
+                <div class="admin-auction-thumb-placeholder" aria-hidden="true"></div>
+              <% } %>
+            </div>
             <div class="admin-auction-row-main">
               <div class="admin-auction-row-title">
                 <a href="/admin/auctions/<%= auction.id %>/edit" class="admin-auction-name"><%= auction.name %></a>
@@ -97,13 +104,14 @@
               </dl>
             </div>
             <div class="admin-auction-row-actions">
-              <a class="btn btn-sm" href="/admin/auctions/<%= auction.id %>/edit">Manage items</a>
+              <a class="btn btn-secondary btn-sm" href="/admin/auctions/<%= auction.id %>/edit">Settings</a>
+              <a class="btn btn-sm" href="/admin/auctions/<%= auction.id %>/assets">Items</a>
               <% if (auction.status !== "closed") { %>
                 <form action="/admin/auctions/<%= auction.id %>/close" method="post" class="inline-form">
-                  <button type="submit" class="btn btn-secondary btn-sm">Close auction</button>
+                  <button type="submit" class="btn btn-secondary btn-sm">Close</button>
                 </form>
               <% } %>
-              <a class="btn btn-ghost btn-sm" href="/auctions/<%= auction.id %>">Public view</a>
+              <a class="btn btn-ghost btn-sm" href="/auctions/<%= auction.id %>">Public</a>
             </div>
           </article>
         <% }) %>

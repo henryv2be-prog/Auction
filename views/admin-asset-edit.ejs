@@ -5,7 +5,7 @@
     <nav class="admin-breadcrumb" aria-label="Admin">
       <a href="/admin/auctions">Auctions</a>
       <span aria-hidden="true" class="admin-breadcrumb-sep">/</span>
-      <a href="/admin/auctions/<%= auction.id %>/edit"><%= auction.name %></a>
+      <a href="/admin/auctions/<%= auction.id %>/assets"><%= auction.name %></a>
       <span aria-hidden="true" class="admin-breadcrumb-sep">/</span>
       <span class="admin-breadcrumb-current">Edit item</span>
     </nav>
@@ -62,7 +62,7 @@
       <p class="muted full-row upload-help">Existing photos and videos stay on the item unless you remove them below.</p>
       <div class="button-row">
         <button type="submit" class="btn">Save changes</button>
-        <a class="btn btn-secondary" href="/admin/auctions/<%= auction.id %>/edit">Back to auction</a>
+        <a class="btn btn-secondary" href="/admin/auctions/<%= auction.id %>/assets">Back to items</a>
         <a class="btn btn-ghost" href="/assets/<%= asset.id %>">Public listing</a>
       </div>
     </form>

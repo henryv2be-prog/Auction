@@ -136,13 +136,82 @@ function applyListingUpdate(payload) {
   }
 }
 
+function syncAuctionCardFeatureImage(card, payload) {
+  if (!card || !payload || typeof payload.auctionId === "undefined") {
+    return;
+  }
+  var url = payload.featureImageUrl || "";
+  var existing = card.querySelector("[data-auction-feature-img]");
+  var body = card.querySelector(".auction-card-body");
+
+  if (url) {
+    if (existing) {
+      existing.src = url;
+    } else if (body) {
+      var wrap = document.createElement("a");
+      wrap.className = "auction-card-media";
+      wrap.href = "/auctions/" + payload.auctionId;
+      wrap.setAttribute("aria-hidden", "true");
+      wrap.setAttribute("tabindex", "-1");
+      var img = document.createElement("img");
+      img.className = "auction-card-cover";
+      img.src = url;
+      img.alt = "";
+      img.loading = "lazy";
+      img.setAttribute("data-auction-feature-img", "");
+      wrap.appendChild(img);
+      card.insertBefore(wrap, body);
+      card.classList.remove("auction-card-no-image");
+    }
+  } else if (existing) {
+    var mediaWrap = existing.closest(".auction-card-media");
+    if (mediaWrap && mediaWrap.parentNode) {
+      mediaWrap.parentNode.removeChild(mediaWrap);
+    }
+    card.classList.add("auction-card-no-image");
+  }
+}
+
+function syncAuctionToolbarCover(toolbar, payload) {
+  if (!toolbar || !payload) {
+    return;
+  }
+  var inner = toolbar.querySelector(".public-toolbar-compact-inner");
+  var existing = toolbar.querySelector("[data-auction-detail-cover]");
+  var url = payload.featureImageUrl || "";
+  if (url) {
+    if (existing) {
+      var img = existing.querySelector("[data-auction-feature-img]");
+      if (img) {
+        img.src = url;
+      }
+    } else if (inner) {
+      var wrap = document.createElement("div");
+      wrap.className = "public-toolbar-cover";
+      wrap.setAttribute("data-auction-detail-cover", "");
+      wrap.setAttribute("aria-hidden", "true");
+      var newImg = document.createElement("img");
+      newImg.src = url;
+      newImg.alt = "";
+      newImg.loading = "lazy";
+      newImg.setAttribute("data-auction-feature-img", "");
+      wrap.appendChild(newImg);
+      toolbar.insertBefore(wrap, inner);
+    }
+  } else if (existing && existing.parentNode) {
+    existing.parentNode.removeChild(existing);
+  }
+}
+
 function applyAuctionUpdate(payload, context) {
   var card = document.querySelector('[data-auction-card="' + payload.auctionId + '"]');
   var detailRoot = document.querySelector('[data-mode="auction-detail"][data-auction-id="' + payload.auctionId + '"]');
+  var toolbar = document.querySelector('[data-auction-toolbar-for="' + payload.auctionId + '"]');
 
   var elementsToPatch = [];
   if (card) elementsToPatch.push(card);
   if (detailRoot) elementsToPatch.push(detailRoot);
+  if (toolbar) elementsToPatch.push(toolbar);
 
   if (!elementsToPatch.length) {
     return;
@@ -174,6 +243,17 @@ function applyAuctionUpdate(payload, context) {
     var assetCountEl = scope.querySelector("[data-auction-asset-count]");
     if (assetCountEl && typeof payload.assetCount === "number") {
       assetCountEl.textContent = String(payload.assetCount);
+    }
+
+    if (scope.getAttribute && scope.getAttribute("data-auction-toolbar-for")) {
+      syncAuctionToolbarCover(scope, payload);
+    } else if (scope.classList && scope.classList.contains("auction-card")) {
+      syncAuctionCardFeatureImage(scope, payload);
+    } else {
+      var featureImg = scope.querySelector("[data-auction-feature-img]");
+      if (featureImg && payload.featureImageUrl) {
+        featureImg.src = payload.featureImageUrl;
+      }
     }
 
     var phaseBadgeEl = scope.querySelector("[data-auction-phase-badge]");
