@@ -150,7 +150,7 @@ app.locals.formatCurrency = formatCurrency;
 app.locals.formatSastDateTime = formatSastDateTime;
 app.locals.formatForDatetimeLocalInput = formatForDatetimeLocalInput;
 app.locals.SAST_TIMEZONE = SAST_TIMEZONE;
-app.locals.assetVersion = process.env.ASSET_VERSION || "20260428m";
+app.locals.assetVersion = process.env.ASSET_VERSION || "20260428n";
 
 const staticAssetOptions = {
   etag: false,
@@ -171,6 +171,10 @@ const uploadStaticOptions = {
 };
 
 app.use(express.urlencoded({ extended: false }));
+app.use((req, res, next) => {
+  res.locals.adminLayout = typeof req.path === "string" && req.path.startsWith("/admin");
+  next();
+});
 app.use(express.static(path.join(__dirname, "public"), staticAssetOptions));
 app.use("/uploads", express.static(uploadsDir, uploadStaticOptions));
 app.use((req, res, next) => {
@@ -641,9 +645,12 @@ app.get("/admin", requireRole("admin"), async (req, res) => {
 app.get("/admin/auctions", requireRole("admin"), async (req, res, next) => {
   try {
     const auctions = await listAuctionsWithCounts();
+    const auctionsWithPhase = auctions.map((row) =>
+      Object.assign({}, row, { phase: deriveAuctionPhase(row) })
+    );
     return res.render("admin-auctions", {
       title: "Auction Management",
-      auctions,
+      auctions: auctionsWithPhase,
       formError: null
     });
   } catch (error) {
@@ -692,9 +699,11 @@ app.get("/admin/auctions/:id/edit", requireRole("admin"), async (req, res, next)
     }
 
     const assets = await listAuctionAssets(auctionId);
+    const auctionPhase = deriveAuctionPhase(auction);
     return res.render("admin-auction-detail", {
       title: `Manage ${auction.name}`,
       auction,
+      auctionPhase,
       assets,
       formError: null
     });
@@ -1068,9 +1077,12 @@ async function renderAssetWithError(res, assetId, formError) {
 
 async function renderAdminAuctionsWithError(res, formError, statusCode) {
   const auctions = await listAuctionsWithCounts();
+  const auctionsWithPhase = auctions.map((row) =>
+    Object.assign({}, row, { phase: deriveAuctionPhase(row) })
+  );
   return res.status(statusCode).render("admin-auctions", {
     title: "Auction Management",
-    auctions,
+    auctions: auctionsWithPhase,
     formError
   });
 }
@@ -1084,9 +1096,11 @@ async function renderAdminAuctionDetailWithError(res, auctionId, formError, stat
     });
   }
   const assets = await listAuctionAssets(auctionId);
+  const auctionPhase = deriveAuctionPhase(auction);
   return res.status(statusCode).render("admin-auction-detail", {
     title: `Manage ${auction.name}`,
     auction,
+    auctionPhase,
     assets,
     formError
   });
@@ -1248,15 +1262,15 @@ class ValidationError extends Error {}
 function validateAuctionFields(body) {
   const name = String(body.name || "").trim();
   const description = String(body.description || "").trim();
-  const status = String(body.status || "draft").trim().toLowerCase();
+  const status = String(body.status || "open").trim().toLowerCase();
   const startAt = parseSastInputToUtc(body.startAt);
   const endAt = parseSastInputToUtc(body.endAt);
 
   if (!name) {
     throw new ValidationError("Auction name is required.");
   }
-  if (!["draft", "open", "closed"].includes(status)) {
-    throw new ValidationError("Invalid auction status.");
+  if (!["open", "closed"].includes(status)) {
+    throw new ValidationError("Auction status must be open or closed.");
   }
   if (!startAt || !endAt) {
     throw new ValidationError("Auction start and end dates are required (entered in SAST).");

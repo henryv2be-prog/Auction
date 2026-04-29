@@ -1,91 +1,115 @@
 <%- include("partials/header", { title, user, notice, formError }) %>
 
-<section class="hero">
-  <h1>Auction Management</h1>
-  <p>Create and manage separate auctions, each with multiple assets.</p>
-</section>
-
-<section class="card">
-  <h2>Create Auction</h2>
-  <form action="/admin/auctions" method="post" class="grid-form">
-    <label>
-      Auction name
-      <input type="text" name="name" required />
-    </label>
-    <label>
-      Status
-      <select name="status">
-        <option value="open">Open</option>
-        <option value="closed">Closed</option>
-      </select>
-    </label>
-    <label class="full-row">
-      Description
-      <textarea name="description" rows="3"></textarea>
-    </label>
-    <label>
-      Starts at (SAST)
-      <input type="datetime-local" name="startAt" required />
-    </label>
-    <label>
-      Ends at (SAST)
-      <input type="datetime-local" name="endAt" required />
-    </label>
-    <p class="muted full-row upload-help">
-      All times are interpreted as South African Standard Time (UTC+02:00).
+<div class="admin-toolbar">
+  <div class="admin-toolbar-inner">
+    <nav class="admin-breadcrumb" aria-label="Admin">
+      <span class="admin-breadcrumb-current">Auctions</span>
+    </nav>
+    <p class="admin-toolbar-lead">
+      Create auctions, set schedules in SAST, then open each auction to add items and media.
     </p>
-    <div class="button-row">
-      <button type="submit" class="btn">Create Auction</button>
-    </div>
-  </form>
-</section>
+  </div>
+</div>
 
-<section class="card">
-  <h2>Auctions</h2>
-  <% if (!auctions.length) { %>
-    <p>No auctions created yet.</p>
-  <% } else { %>
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Status</th>
-            <th>Assets</th>
-            <th>Starts</th>
-            <th>Ends</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% auctions.forEach((auction) => { %>
-            <tr>
-              <td data-label="Name">
-                <strong><%= auction.name %></strong>
-                <% if (auction.description) { %>
-                  <div class="subtle"><%= auction.description %></div>
-                <% } %>
-              </td>
-              <td data-label="Status"><span class="status <%= auction.status %>"><%= auction.status %></span></td>
-              <td data-label="Assets"><%= auction.asset_count %></td>
-              <td data-label="Starts (SAST)"><%= formatSastDateTime(auction.start_at) %></td>
-              <td data-label="Ends (SAST)"><%= formatSastDateTime(auction.end_at) %></td>
-              <td data-label="Actions">
-                <div class="actions-cell">
-                  <a class="btn btn-secondary btn-sm" href="/admin/auctions/<%= auction.id %>/edit">Manage</a>
-                  <% if (auction.status !== "closed") { %>
-                    <form action="/admin/auctions/<%= auction.id %>/close" method="post" class="inline-form">
-                      <button type="submit" class="btn btn-secondary btn-sm">Close</button>
-                    </form>
-                  <% } %>
-                </div>
-              </td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
+<div class="admin-layout admin-layout-single">
+  <section class="admin-panel admin-panel-accent">
+    <div class="admin-panel-head">
+      <h2 class="admin-panel-title">New auction</h2>
+      <p class="admin-panel-desc">Use Closed to prepare an auction without listing it; switch to Open when ready.</p>
     </div>
-  <% } %>
-</section>
+    <form action="/admin/auctions" method="post" class="grid-form admin-form-tight">
+      <label>
+        Name
+        <input type="text" name="name" required placeholder="e.g. Estate sale — March" />
+      </label>
+      <label>
+        Catalogue status
+        <select name="status">
+          <option value="open">Open — visible on the site</option>
+          <option value="closed">Closed — hidden from listings</option>
+        </select>
+      </label>
+      <label class="full-row">
+        Description
+        <textarea name="description" rows="3" placeholder="Short summary for bidders"></textarea>
+      </label>
+      <label>
+        Starts (SAST)
+        <input type="datetime-local" name="startAt" required />
+      </label>
+      <label>
+        Ends (SAST)
+        <input type="datetime-local" name="endAt" required />
+      </label>
+      <p class="muted full-row upload-help">
+        Times use South African Standard Time (UTC+02:00).
+      </p>
+      <div class="button-row">
+        <button type="submit" class="btn">Create auction</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="admin-panel">
+    <div class="admin-panel-head admin-panel-head-row">
+      <div>
+        <h2 class="admin-panel-title">Your auctions</h2>
+        <p class="admin-panel-desc">Manage items, pricing, and media inside each auction.</p>
+      </div>
+    </div>
+    <% if (!auctions.length) { %>
+      <div class="empty-state admin-empty">
+        <p class="admin-empty-title">No auctions yet</p>
+        <p class="muted">Create one using the form above, then add assets from the auction page.</p>
+      </div>
+    <% } else { %>
+      <div class="admin-auction-list">
+        <% auctions.forEach((auction) => { %>
+          <article class="admin-auction-row">
+            <div class="admin-auction-row-main">
+              <div class="admin-auction-row-title">
+                <a href="/admin/auctions/<%= auction.id %>/edit" class="admin-auction-name"><%= auction.name %></a>
+                <% if (auction.phase === "live") { %>
+                  <span class="badge badge-live">Live</span>
+                <% } else if (auction.phase === "upcoming") { %>
+                  <span class="badge badge-upcoming">Upcoming</span>
+                <% } else { %>
+                  <span class="badge badge-closed">Ended</span>
+                <% } %>
+                <span class="admin-auction-status"><%= auction.status %></span>
+              </div>
+              <% if (auction.description) { %>
+                <p class="admin-auction-desc subtle"><%= auction.description %></p>
+              <% } %>
+              <dl class="admin-auction-meta">
+                <div>
+                  <dt>Items</dt>
+                  <dd><%= auction.asset_count %></dd>
+                </div>
+                <div>
+                  <dt>Starts (SAST)</dt>
+                  <dd><%= formatSastDateTime(auction.start_at) %></dd>
+                </div>
+                <div>
+                  <dt>Ends (SAST)</dt>
+                  <dd><%= formatSastDateTime(auction.end_at) %></dd>
+                </div>
+              </dl>
+            </div>
+            <div class="admin-auction-row-actions">
+              <a class="btn btn-sm" href="/admin/auctions/<%= auction.id %>/edit">Manage items</a>
+              <% if (auction.status !== "closed") { %>
+                <form action="/admin/auctions/<%= auction.id %>/close" method="post" class="inline-form">
+                  <button type="submit" class="btn btn-secondary btn-sm">Close auction</button>
+                </form>
+              <% } %>
+              <a class="btn btn-ghost btn-sm" href="/auctions/<%= auction.id %>">Public view</a>
+            </div>
+          </article>
+        <% }) %>
+      </div>
+    <% } %>
+  </section>
+</div>
 
 <%- include("partials/footer") %>

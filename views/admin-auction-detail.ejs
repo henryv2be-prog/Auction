@@ -1,137 +1,205 @@
 <%- include("partials/header", { title, user, notice, formError }) %>
 
-<section class="hero">
-  <h1><%= auction.name %></h1>
-  <p class="muted"><%= auction.description || "No description provided." %></p>
-  <p class="muted">
-    Status: <strong><%= auction.status.toUpperCase() %></strong> |
-    Starts (SAST): <%= formatSastDateTime(auction.start_at) %> |
-    Ends (SAST): <%= formatSastDateTime(auction.end_at) %>
-  </p>
-</section>
-
-<section class="card">
-  <h2>Edit Auction</h2>
-  <form action="/admin/auctions/<%= auction.id %>/edit" method="post" class="grid-form">
-    <label>
-      Auction name
-      <input type="text" name="name" value="<%= auction.name %>" required />
-    </label>
-    <label>
-      Status
-      <select name="status" required>
-        <option value="draft" <%= auction.status === "draft" ? "selected" : "" %>>Draft</option>
-        <option value="open" <%= auction.status === "open" ? "selected" : "" %>>Open</option>
-        <option value="closed" <%= auction.status === "closed" ? "selected" : "" %>>Closed</option>
-      </select>
-    </label>
-    <label>
-      Starts at (SAST)
-      <input
-        type="datetime-local"
-        name="startAt"
-        value="<%= formatForDatetimeLocalInput(auction.start_at) %>"
-        required
-      />
-    </label>
-    <label>
-      Ends at (SAST)
-      <input
-        type="datetime-local"
-        name="endAt"
-        value="<%= formatForDatetimeLocalInput(auction.end_at) %>"
-        required
-      />
-    </label>
-    <p class="muted full-row upload-help">
-      All times are interpreted as South African Standard Time (UTC+02:00).
-    </p>
-    <label class="full-row">
-      Description
-      <textarea name="description" rows="3"><%= auction.description || "" %></textarea>
-    </label>
-    <div class="button-row">
-      <button type="submit" class="btn">Save Auction</button>
+<div class="admin-toolbar">
+  <div class="admin-toolbar-inner">
+    <nav class="admin-breadcrumb" aria-label="Admin">
+      <a href="/admin/auctions">Auctions</a>
+      <span aria-hidden="true" class="admin-breadcrumb-sep">/</span>
+      <span class="admin-breadcrumb-current"><%= auction.name %></span>
+    </nav>
+    <div class="admin-toolbar-title-row">
+      <h1 class="admin-page-title"><%= auction.name %></h1>
+      <% if (typeof auctionPhase !== "undefined" && auctionPhase === "live") { %>
+        <span class="badge badge-live">Live now</span>
+      <% } else if (typeof auctionPhase !== "undefined" && auctionPhase === "upcoming") { %>
+        <span class="badge badge-upcoming">Upcoming</span>
+      <% } else { %>
+        <span class="badge badge-closed">Ended</span>
+      <% } %>
     </div>
-  </form>
-  <% if (auction.status !== "closed") { %>
-    <form action="/admin/auctions/<%= auction.id %>/close" method="post" class="inline-form">
-      <button type="submit" class="btn btn-secondary">Close Auction</button>
-    </form>
-  <% } %>
-</section>
-
-<section class="card">
-  <h2>Add Asset to This Auction</h2>
-  <form
-    action="/admin/auctions/<%= auction.id %>/assets"
-    method="post"
-    enctype="multipart/form-data"
-    class="grid-form"
-    data-upload-form
-  >
-    <label>
-      Asset title
-      <input type="text" name="title" required />
-    </label>
-    <label>
-      Start price
-      <input type="number" name="startPrice" step="0.01" min="0.01" required />
-    </label>
-    <label class="full-row">
-      Description
-      <textarea name="description" rows="4" required></textarea>
-    </label>
-    <label class="full-row">
-      Item images/videos (optional)
-      <input type="file" name="media" accept="image/*,video/*" multiple />
-    </label>
-    <div class="button-row">
-      <button type="submit" class="btn">Add Asset</button>
+    <% if (auction.description) { %>
+      <p class="admin-toolbar-lead"><%= auction.description %></p>
+    <% } %>
+    <dl class="admin-summary-strip">
+      <div>
+        <dt>Catalogue</dt>
+        <dd><%= auction.status %></dd>
+      </div>
+      <div>
+        <dt>Starts (SAST)</dt>
+        <dd><%= formatSastDateTime(auction.start_at) %></dd>
+      </div>
+      <div>
+        <dt>Ends (SAST)</dt>
+        <dd><%= formatSastDateTime(auction.end_at) %></dd>
+      </div>
+      <div>
+        <dt>Items</dt>
+        <dd><%= assets.length %></dd>
+      </div>
+    </dl>
+    <div class="admin-toolbar-actions">
+      <a class="btn btn-secondary btn-sm" href="/auctions/<%= auction.id %>">View public page</a>
+      <% if (auction.status !== "closed") { %>
+        <form action="/admin/auctions/<%= auction.id %>/close" method="post" class="inline-form">
+          <button type="submit" class="btn btn-secondary btn-sm">Close auction</button>
+        </form>
+      <% } %>
     </div>
-  </form>
-</section>
+  </div>
+</div>
 
-<section class="card">
-  <h2>Assets in This Auction</h2>
-  <% if (!assets.length) { %>
-    <p>No assets in this auction yet.</p>
-  <% } else { %>
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Title</th>
-            <th>Status</th>
-            <th>Current Price</th>
-            <th>Bids</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
+<div class="admin-layout">
+  <div class="admin-layout-main">
+    <section class="admin-panel">
+      <div class="admin-panel-head">
+        <h2 class="admin-panel-title">Auction details</h2>
+        <p class="admin-panel-desc">Name, schedule, and visibility in the catalogue.</p>
+      </div>
+      <form action="/admin/auctions/<%= auction.id %>/edit" method="post" class="grid-form admin-form-tight">
+        <label>
+          Name
+          <input type="text" name="name" value="<%= auction.name %>" required />
+        </label>
+        <label>
+          Catalogue status
+          <select name="status" required>
+            <option value="open" <%= auction.status === "open" ? "selected" : "" %>>Open — listed publicly</option>
+            <option value="closed" <%= auction.status === "closed" ? "selected" : "" %>>Closed</option>
+          </select>
+        </label>
+        <label>
+          Starts (SAST)
+          <input
+            type="datetime-local"
+            name="startAt"
+            value="<%= formatForDatetimeLocalInput(auction.start_at) %>"
+            required
+          />
+        </label>
+        <label>
+          Ends (SAST)
+          <input
+            type="datetime-local"
+            name="endAt"
+            value="<%= formatForDatetimeLocalInput(auction.end_at) %>"
+            required
+          />
+        </label>
+        <p class="muted full-row upload-help">Times use SAST (UTC+02:00).</p>
+        <label class="full-row">
+          Description
+          <textarea name="description" rows="3"><%= auction.description || "" %></textarea>
+        </label>
+        <div class="button-row">
+          <button type="submit" class="btn">Save changes</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="admin-panel admin-panel-accent">
+      <div class="admin-panel-head">
+        <h2 class="admin-panel-title">Add item to this auction</h2>
+        <p class="admin-panel-desc">Optional photos or video; you can add more later on the asset page.</p>
+      </div>
+      <form
+        action="/admin/auctions/<%= auction.id %>/assets"
+        method="post"
+        enctype="multipart/form-data"
+        class="grid-form admin-form-tight"
+        data-upload-form
+      >
+        <label>
+          Title
+          <input type="text" name="title" required placeholder="Item name" />
+        </label>
+        <label>
+          Starting price (ZAR)
+          <input type="number" name="startPrice" step="0.01" min="0.01" required />
+        </label>
+        <label class="full-row">
+          Description
+          <textarea name="description" rows="4" required placeholder="Condition, dimensions, pickup notes…"></textarea>
+        </label>
+        <label class="full-row">
+          Images / video (optional)
+          <input type="file" name="media" accept="image/*,video/*" multiple />
+        </label>
+        <div class="button-row">
+          <button type="submit" class="btn">Add item</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head admin-panel-head-row">
+        <div>
+          <h2 class="admin-panel-title">Items in this auction</h2>
+          <p class="admin-panel-desc"><%= assets.length %> listed</p>
+        </div>
+      </div>
+      <% if (!assets.length) { %>
+        <div class="empty-state admin-empty">
+          <p class="admin-empty-title">No items yet</p>
+          <p class="muted">Use the form above to list the first asset.</p>
+        </div>
+      <% } else { %>
+        <div class="admin-asset-cards">
           <% assets.forEach((asset) => { %>
-            <tr>
-              <td data-label="ID"><%= asset.id %></td>
-              <td data-label="Title"><a href="/assets/<%= asset.id %>"><%= asset.title %></a></td>
-              <td data-label="Status"><span class="status <%= asset.status %>"><%= asset.status %></span></td>
-              <td data-label="Current Price"><%= formatCurrency(asset.current_price) %></td>
-              <td data-label="Bids"><%= asset.bid_count %></td>
-              <td data-label="Actions">
-                <div class="actions-cell">
-                  <a class="btn btn-secondary btn-sm" href="/admin/assets/<%= asset.id %>/edit">Edit</a>
-                  <form action="/admin/assets/<%= asset.id %>/remove" method="post" class="inline-form">
-                    <button type="submit" class="btn btn-secondary btn-sm">Remove</button>
-                  </form>
+            <article class="admin-asset-card">
+              <div class="admin-asset-card-body">
+                <div class="admin-asset-card-top">
+                  <h3 class="admin-asset-card-title">
+                    <a href="/assets/<%= asset.id %>"><%= asset.title %></a>
+                  </h3>
+                  <span class="status <%= asset.status %>"><%= asset.status %></span>
                 </div>
-              </td>
-            </tr>
+                <dl class="admin-asset-card-meta">
+                  <div>
+                    <dt>Current</dt>
+                    <dd><%= formatCurrency(asset.current_price) %></dd>
+                  </div>
+                  <div>
+                    <dt>Start</dt>
+                    <dd><%= formatCurrency(asset.start_price) %></dd>
+                  </div>
+                  <div>
+                    <dt>Bids</dt>
+                    <dd><%= asset.bid_count %></dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="admin-asset-card-actions">
+                <a class="btn btn-secondary btn-sm" href="/admin/assets/<%= asset.id %>/edit">Edit &amp; media</a>
+                <form action="/admin/assets/<%= asset.id %>/remove" method="post" class="inline-form">
+                  <button type="submit" class="btn btn-danger-ghost btn-sm">Remove</button>
+                </form>
+              </div>
+            </article>
           <% }) %>
-        </tbody>
-      </table>
+        </div>
+      <% } %>
+    </section>
+  </div>
+
+  <aside class="admin-layout-aside" aria-label="Auction tips">
+    <div class="admin-tip-card">
+      <h3 class="admin-tip-title">Workflow</h3>
+      <ol class="admin-tip-list">
+        <li>Set auction window and status, then save.</li>
+        <li>Add each item with title, price, and description.</li>
+        <li>Open <strong>Edit &amp; media</strong> to attach more photos or trim listings.</li>
+      </ol>
     </div>
-  <% } %>
-</section>
+    <div class="admin-tip-card">
+      <h3 class="admin-tip-title">Quick links</h3>
+      <ul class="admin-tip-links">
+        <li><a href="/admin/auctions">All auctions</a></li>
+        <li><a href="/auctions/<%= auction.id %>">Public catalogue</a></li>
+      </ul>
+    </div>
+  </aside>
+</div>
 
 <script src="/upload-progress.js?v=<%= assetVersion %>"></script>
 
