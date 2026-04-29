@@ -1610,6 +1610,12 @@ tbody tr:last-child td {
   margin-top: 0.35rem;
 }
 
+.admin-feature-label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
 .admin-feature-block {
   padding-top: var(--space-2);
 }
