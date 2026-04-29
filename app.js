@@ -178,7 +178,7 @@ app.locals.formatCurrency = formatCurrency;
 app.locals.formatSastDateTime = formatSastDateTime;
 app.locals.formatForDatetimeLocalInput = formatForDatetimeLocalInput;
 app.locals.SAST_TIMEZONE = SAST_TIMEZONE;
-app.locals.assetVersion = process.env.ASSET_VERSION || "20260428q";
+app.locals.assetVersion = process.env.ASSET_VERSION || "20260428r";
 app.locals.maxAuctionCoverMb = maxAuctionCoverMb;
 
 const staticAssetOptions = {
@@ -1628,6 +1628,12 @@ function mapAuctionFeatureImageUrl(storedPath) {
     return null;
   }
   return `/uploads/${encodeURIComponent(storedPath)}`;
+}
+
+function attachFeature(row) {
+  return Object.assign({}, row, {
+    feature_image_url: mapAuctionFeatureImageUrl(row.feature_image_path)
+  });
 }
 
 async function deleteFilesIfPresent(files) {
