@@ -1,34 +1,42 @@
 <%- include("partials/header", { title, user, notice, formError: null, message: null }) %>
 
-<section class="card">
-  <h1>My Bids</h1>
+<div class="public-toolbar public-toolbar-compact">
+  <h1 class="public-toolbar-title">My bids</h1>
+  <p class="public-toolbar-lead">See how your offers compare to the current price on each item.</p>
+</div>
+
+<section class="panel-card">
   <% if (bids.length === 0) { %>
-    <p class="muted">You have not placed any bids yet.</p>
+    <div class="empty-inline empty-inline-padded">
+      <p class="muted">You have not placed any bids yet. Browse <a href="/assets">auctions</a> to get started.</p>
+    </div>
   <% } else { %>
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Asset</th>
-          <th>Your Bid</th>
-          <th>Current Price</th>
-          <th>Status</th>
-          <th>Placed</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% bids.forEach((bid) => { %>
+    <div class="table-wrap table-wrap-flush">
+      <table class="table">
+        <thead>
           <tr>
-            <td data-label="Asset">
-              <a href="/assets/<%= bid.asset_id %>"><%= bid.title %></a>
-            </td>
-            <td data-label="Your Bid"><%= formatCurrency(bid.amount) %></td>
-            <td data-label="Current Price"><%= formatCurrency(bid.current_price) %></td>
-            <td data-label="Status"><span class="pill pill-<%= bid.status %>"><%= bid.status %></span></td>
-            <td data-label="Placed"><%= formatSastDateTime(bid.created_at) %></td>
+            <th>Item</th>
+            <th>Your bid</th>
+            <th>Current price</th>
+            <th>Status</th>
+            <th>Placed</th>
           </tr>
-        <% }) %>
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          <% bids.forEach((bid) => { %>
+            <tr>
+              <td data-label="Item">
+                <a href="/assets/<%= bid.asset_id %>"><%= bid.title %></a>
+              </td>
+              <td data-label="Your bid"><%= formatCurrency(bid.amount) %></td>
+              <td data-label="Current price"><%= formatCurrency(bid.current_price) %></td>
+              <td data-label="Status"><span class="pill pill-<%= bid.status %>"><%= bid.status %></span></td>
+              <td data-label="Placed"><%= formatSastDateTime(bid.created_at) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
   <% } %>
 </section>
 

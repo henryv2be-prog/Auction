@@ -1,41 +1,42 @@
 <%- include("partials/header", { title, user, notice, formError: null }) %>
 
-<nav class="breadcrumbs">
-  <a href="/assets">All auctions</a>
-  <span aria-hidden="true">›</span>
-  <span><%= auction.name %></span>
-</nav>
-
-<%
-  function phaseLabel(phase) {
-    if (phase === "live") return "Live";
-    if (phase === "upcoming") return "Upcoming";
-    return "Closed";
-  }
-  function phaseBadgeClass(phase) {
-    if (phase === "live") return "badge badge-live";
-    if (phase === "upcoming") return "badge badge-upcoming";
-    return "badge badge-closed";
-  }
-%>
-
-<section
-  class="page-header auction-header"
-  data-realtime-root
-  data-mode="auction-detail"
-  data-auction-id="<%= auction.id %>"
-  data-auction-phase="<%= auction.phase %>"
->
-  <div class="auction-header-row">
-    <h1 data-auction-name><%= auction.name %></h1>
+<div class="public-toolbar public-toolbar-compact">
+  <nav class="breadcrumbs breadcrumbs-on-dark">
+    <a href="/assets">All auctions</a>
+    <span aria-hidden="true">›</span>
+    <span class="breadcrumbs-current"><%= auction.name %></span>
+  </nav>
+  <%
+    function phaseLabel(phase) {
+      if (phase === "live") return "Live";
+      if (phase === "upcoming") return "Upcoming";
+      return "Closed";
+    }
+    function phaseBadgeClass(phase) {
+      if (phase === "live") return "badge badge-live";
+      if (phase === "upcoming") return "badge badge-upcoming";
+      return "badge badge-closed";
+    }
+  %>
+  <div class="public-toolbar-title-row">
+    <h1 class="public-toolbar-title" data-auction-name><%= auction.name %></h1>
     <span class="<%= phaseBadgeClass(auction.phase) %>" data-auction-phase-badge>
       <%= phaseLabel(auction.phase) %>
     </span>
   </div>
   <% if (auction.description) { %>
-    <p class="muted" data-auction-description><%= auction.description %></p>
+    <p class="public-toolbar-lead" data-auction-description><%= auction.description %></p>
   <% } %>
-  <dl class="auction-meta-row">
+</div>
+
+<section
+  class="auction-summary-card"
+  data-realtime-root
+  data-mode="auction-detail"
+  data-auction-id="<%= auction.id %>"
+  data-auction-phase="<%= auction.phase %>"
+>
+  <dl class="auction-meta-row auction-meta-strip">
     <div>
       <dt>Starts (SAST)</dt>
       <dd data-auction-start data-iso="<%= auction.start_at %>"><%= formatSastDateTime(auction.start_at) %></dd>
@@ -51,8 +52,8 @@
   </dl>
 </section>
 
-<section class="section">
-  <h2>Items in this auction</h2>
+<section class="section section-tight">
+  <h2 class="section-heading">Items in this auction</h2>
   <% if (!assets.length) { %>
     <p class="muted">No items have been listed in this auction yet.</p>
   <% } else { %>

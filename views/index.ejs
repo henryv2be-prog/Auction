@@ -1,9 +1,14 @@
 <%- include("partials/header", { title, user, notice, formError: null }) %>
 
-<section class="page-header">
-  <h1><%= title %></h1>
-  <p>Browse the auction catalogue. Pick an auction to see the items up for bid.</p>
-</section>
+<div class="public-toolbar">
+  <div class="public-toolbar-inner">
+    <p class="public-toolbar-eyebrow">Catalogue</p>
+    <h1 class="public-toolbar-title"><%= title %></h1>
+    <p class="public-toolbar-lead">
+      Browse live, upcoming, and past auctions. Open one to see items and place bids when bidding is open.
+    </p>
+  </div>
+</div>
 
 <%
   function phaseLabel(phase) {
@@ -22,11 +27,11 @@
 %>
   <section class="section auction-group" data-auction-group="<%= groupKey %>">
     <div class="auction-group-header">
-      <h2><%= heading %></h2>
+      <h2 class="section-heading"><%= heading %></h2>
       <span class="auction-group-count" data-auction-group-count><%= list.length %></span>
     </div>
     <% if (!list.length) { %>
-      <p class="muted" data-auction-group-empty><%= emptyText %></p>
+      <p class="muted empty-inline" data-auction-group-empty><%= emptyText %></p>
     <% } else { %>
       <div class="grid" data-auction-group-grid>
         <% list.forEach((auction) => { %>

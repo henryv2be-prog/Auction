@@ -150,7 +150,7 @@ app.locals.formatCurrency = formatCurrency;
 app.locals.formatSastDateTime = formatSastDateTime;
 app.locals.formatForDatetimeLocalInput = formatForDatetimeLocalInput;
 app.locals.SAST_TIMEZONE = SAST_TIMEZONE;
-app.locals.assetVersion = process.env.ASSET_VERSION || "20260428n";
+app.locals.assetVersion = process.env.ASSET_VERSION || "20260428o";
 
 const staticAssetOptions = {
   etag: false,
@@ -530,6 +530,7 @@ app.get("/assets/:id", async (req, res, next) => {
       asset,
       bids,
       media,
+      auctionUrl: `/auctions/${asset.auction_id}`,
       formError: null
     });
   } catch (error) {
@@ -1071,6 +1072,7 @@ async function renderAssetWithError(res, assetId, formError) {
     asset,
     bids,
     media: asset ? await getAssetMedia(asset.id) : [],
+    auctionUrl: asset && asset.auction_id ? `/auctions/${asset.auction_id}` : null,
     formError
   });
 }

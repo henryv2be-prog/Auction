@@ -1,9 +1,12 @@
 <%- include("partials/header", { title, user, notice, formError: null, message: null }) %>
 
-<section class="section">
-  <h1><%= title %></h1>
-  <p class="subtle"><%= message %></p>
-  <p><a href="/assets" class="btn">Back to assets</a></p>
+<div class="public-toolbar public-toolbar-minimal">
+  <h1 class="public-toolbar-title"><%= title %></h1>
+  <p class="public-toolbar-lead subtle"><%= message %></p>
+</div>
+
+<section class="panel-card panel-card-center">
+  <a href="/assets" class="btn">Back to auctions</a>
 </section>
 
 <%- include("partials/footer") %>

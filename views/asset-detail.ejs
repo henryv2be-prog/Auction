@@ -1,143 +1,160 @@
 <%- include("partials/header", { title, user, notice, formError }) %>
 
+<div class="public-toolbar public-toolbar-compact">
+  <nav class="breadcrumbs breadcrumbs-on-dark">
+    <a href="/assets">All auctions</a>
+    <span aria-hidden="true">›</span>
+    <% if (typeof auctionUrl === "string" && auctionUrl) { %>
+      <a href="<%= auctionUrl %>"><%= asset.auction_title || "Auction" %></a>
+      <span aria-hidden="true">›</span>
+    <% } %>
+    <span class="breadcrumbs-current"><%= asset.title %></span>
+  </nav>
+  <div class="public-toolbar-title-row">
+    <h1 class="public-toolbar-title"><%= asset.title %></h1>
+    <span
+      id="asset-status-pill"
+      data-asset-status-pill
+      class="pill <%= asset.status === 'open' ? 'pill-open' : 'pill-closed' %>"
+    >
+      <%= asset.status %>
+    </span>
+  </div>
+  <p class="public-toolbar-lead"><%= asset.description %></p>
+</div>
+
 <section
   id="asset-detail-root"
-  class="detail-grid"
+  class="detail-grid asset-detail-layout"
   data-realtime-root
   data-mode="detail"
   data-asset-id="<%= asset.id %>"
 >
-  <article class="asset-card">
-    <h1><%= asset.title %></h1>
-    <p><%= asset.description %></p>
-    <dl class="asset-meta">
+  <% if (media && media.length) { %>
+    <div class="asset-detail-media-block">
+      <div class="media-carousel" data-media-slider>
+        <div class="carousel-stage">
+          <div class="carousel-track" data-media-track>
+            <% media.forEach((item, index) => { %>
+              <article
+                class="carousel-slide"
+                data-media-slide
+                data-media-index="<%= index %>"
+                data-media-type="<%= item.media_type %>"
+                data-media-src="<%= item.file_path %>"
+                data-media-title="<%= item.original_name %>"
+                tabindex="0"
+                role="button"
+                aria-label="View media <%= index + 1 %>"
+              >
+                <% if (item.media_type === "image") { %>
+                  <img src="<%= item.file_path %>" alt="<%= item.original_name %>" loading="lazy" />
+                  <span class="media-type-pill">Photo</span>
+                <% } else { %>
+                  <video preload="metadata" muted playsinline>
+                    <source src="<%= item.file_path %>" />
+                    Your browser does not support video playback.
+                  </video>
+                  <span class="media-type-pill">Video</span>
+                <% } %>
+              </article>
+            <% }) %>
+          </div>
+          <% if (media.length > 1) { %>
+            <button type="button" class="carousel-nav carousel-prev" data-media-prev aria-label="Previous media">
+              &#10094;
+            </button>
+            <button type="button" class="carousel-nav carousel-next" data-media-next aria-label="Next media">
+              &#10095;
+            </button>
+          <% } %>
+        </div>
+
+        <div class="carousel-meta">
+          <% if (media.length > 1) { %>
+            <div class="carousel-dots">
+              <% media.forEach((item, index) => { %>
+                <button
+                  type="button"
+                  class="carousel-dot <%= index === 0 ? 'active' : '' %>"
+                  data-media-dot="<%= index %>"
+                  aria-label="Go to media <%= index + 1 %>"
+                  aria-selected="<%= index === 0 ? 'true' : 'false' %>"
+                ></button>
+              <% }) %>
+            </div>
+          <% } %>
+          <span class="carousel-counter" data-media-counter></span>
+        </div>
+        <p class="carousel-caption" data-media-caption></p>
+        <p class="media-hint muted">Swipe between photos and videos, then tap to enlarge.</p>
+      </div>
+
+      <div class="media-modal" data-media-overlay hidden>
+        <button type="button" class="media-modal-close" data-overlay-close aria-label="Close media viewer">
+          &times;
+        </button>
+        <div class="media-modal-content">
+          <% if (media.length > 1) { %>
+            <button type="button" class="media-modal-nav media-modal-prev" data-overlay-prev aria-label="Previous">
+              &#10094;
+            </button>
+            <button type="button" class="media-modal-nav media-modal-next" data-overlay-next aria-label="Next">
+              &#10095;
+            </button>
+          <% } %>
+          <div class="media-modal-media">
+            <img data-overlay-image alt="" hidden />
+            <video data-overlay-video controls playsinline hidden></video>
+          </div>
+          <p class="carousel-caption" data-overlay-title></p>
+        </div>
+      </div>
+    </div>
+  <% } %>
+
+  <article class="asset-card asset-detail-info">
+    <% if (!media || !media.length) { %>
+      <p class="muted asset-detail-no-media">No photos or video for this item yet.</p>
+    <% } %>
+    <dl class="asset-meta asset-meta-tight">
       <div>
         <dt>Auction</dt>
-        <dd><%= asset.auction_title || "General Auction" %></dd>
+        <dd>
+          <% if (typeof auctionUrl === "string" && auctionUrl) { %>
+            <a href="<%= auctionUrl %>"><%= asset.auction_title || "General Auction" %></a>
+          <% } else { %>
+            <%= asset.auction_title || "General Auction" %>
+          <% } %>
+        </dd>
       </div>
       <div>
         <dt>Seller</dt>
         <dd><%= asset.seller_name %></dd>
       </div>
       <div>
-        <dt>Starting Price</dt>
+        <dt>Starting price</dt>
         <dd><%= formatCurrency(asset.start_price) %></dd>
       </div>
       <div>
-        <dt>Current Price</dt>
+        <dt>Current price</dt>
         <dd id="asset-current-price" data-current-price><%= formatCurrency(asset.current_price) %></dd>
       </div>
       <div>
-        <dt>Status</dt>
-        <dd>
-          <span
-            id="asset-status-pill"
-            data-asset-status-pill
-            class="pill <%= asset.status === 'open' ? 'pill-open' : 'pill-closed' %>"
-          >
-            <%= asset.status %>
-          </span>
-        </dd>
-      </div>
-      <div>
-        <dt>Auction Ends (SAST)</dt>
+        <dt>Auction ends (SAST)</dt>
         <dd><%= formatSastDateTime(asset.end_at) %></dd>
       </div>
     </dl>
-
-    <% if (media && media.length) { %>
-      <section class="section">
-        <h2>Media</h2>
-        <div class="media-carousel" data-media-slider>
-          <div class="carousel-stage">
-            <div class="carousel-track" data-media-track>
-              <% media.forEach((item, index) => { %>
-                <article
-                  class="carousel-slide"
-                  data-media-slide
-                  data-media-index="<%= index %>"
-                  data-media-type="<%= item.media_type %>"
-                  data-media-src="<%= item.file_path %>"
-                  data-media-title="<%= item.original_name %>"
-                  tabindex="0"
-                  role="button"
-                  aria-label="View media <%= index + 1 %>"
-                >
-                  <% if (item.media_type === "image") { %>
-                    <img src="<%= item.file_path %>" alt="<%= item.original_name %>" loading="lazy" />
-                    <span class="media-type-pill">Photo</span>
-                  <% } else { %>
-                    <video preload="metadata" muted playsinline>
-                      <source src="<%= item.file_path %>" />
-                      Your browser does not support video playback.
-                    </video>
-                    <span class="media-type-pill">Video</span>
-                  <% } %>
-                </article>
-              <% }) %>
-            </div>
-            <% if (media.length > 1) { %>
-              <button type="button" class="carousel-nav carousel-prev" data-media-prev aria-label="Previous media">
-                &#10094;
-              </button>
-              <button type="button" class="carousel-nav carousel-next" data-media-next aria-label="Next media">
-                &#10095;
-              </button>
-            <% } %>
-          </div>
-
-          <div class="carousel-meta">
-            <% if (media.length > 1) { %>
-              <div class="carousel-dots">
-                <% media.forEach((item, index) => { %>
-                  <button
-                    type="button"
-                    class="carousel-dot <%= index === 0 ? 'active' : '' %>"
-                    data-media-dot="<%= index %>"
-                    aria-label="Go to media <%= index + 1 %>"
-                    aria-selected="<%= index === 0 ? 'true' : 'false' %>"
-                  ></button>
-                <% }) %>
-              </div>
-            <% } %>
-            <span class="carousel-counter" data-media-counter></span>
-          </div>
-          <p class="carousel-caption" data-media-caption></p>
-          <p class="media-hint muted">Swipe to slide between photos and videos, then tap to view.</p>
-        </div>
-
-        <div class="media-modal" data-media-overlay hidden>
-          <button type="button" class="media-modal-close" data-overlay-close aria-label="Close media viewer">
-            &times;
-          </button>
-          <div class="media-modal-content">
-            <% if (media.length > 1) { %>
-              <button type="button" class="media-modal-nav media-modal-prev" data-overlay-prev aria-label="Previous">
-                &#10094;
-              </button>
-              <button type="button" class="media-modal-nav media-modal-next" data-overlay-next aria-label="Next">
-                &#10095;
-              </button>
-            <% } %>
-            <div class="media-modal-media">
-              <img data-overlay-image alt="" hidden />
-              <video data-overlay-video controls playsinline hidden></video>
-            </div>
-            <p class="carousel-caption" data-overlay-title></p>
-          </div>
-        </div>
-      </section>
-    <% } %>
   </article>
 
-  <aside class="panel">
-    <h2>Place Bid</h2>
+  <aside class="panel panel-bid">
+    <h2 class="panel-bid-title">Place a bid</h2>
     <% if (!user) { %>
-      <p>Please <a href="/login">login</a> as a user account to bid.</p>
+      <p class="panel-bid-text">Please <a href="/login">sign in</a> with a bidder account to participate.</p>
     <% } else if (user.role !== "user") { %>
-      <p>Admin accounts cannot place bids.</p>
+      <p class="panel-bid-text">Admin accounts cannot place bids.</p>
     <% } else if (asset.status !== "open") { %>
-      <p>This auction has closed.</p>
+      <p class="panel-bid-text">Bidding has closed for this item.</p>
     <% } else { %>
       <form
         id="bid-form"
@@ -146,41 +163,47 @@
         action="/assets/<%= asset.id %>/bid"
         class="form"
       >
-        <label for="amount">Bid Amount (ZAR)</label>
+        <label for="amount">Amount (ZAR)</label>
         <input id="amount" name="amount" type="number" min="0.01" step="0.01" required />
-        <button id="submit-bid-button" class="btn" type="submit">Submit Bid</button>
+        <button id="submit-bid-button" class="btn btn-block" type="submit">Submit bid</button>
       </form>
-      <p id="min-bid-hint" class="muted">
-        Your bid must be above <span data-minimum-bid><%= formatCurrency(asset.current_price) %></span>.
+      <p id="min-bid-hint" class="muted panel-bid-hint">
+        Must be above <span data-minimum-bid><%= formatCurrency(asset.current_price) %></span>.
       </p>
-      <p class="live-note muted" data-live-note>Live updates are enabled for this auction.</p>
+      <p class="live-note muted" data-live-note>Prices update live while you stay on this page.</p>
     <% } %>
   </aside>
 </section>
 
-<section class="section">
-  <h2>Recent Bids</h2>
+<section class="section section-tight">
+  <h2 class="section-heading">Recent bids</h2>
   <% if (bids.length === 0) { %>
-    <p id="no-bids-message" class="muted" data-bids-empty>No bids yet.</p>
+    <div class="panel-card panel-card-muted">
+      <p id="no-bids-message" class="muted" data-bids-empty>No bids yet.</p>
+    </div>
   <% } else { %>
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Bidder</th>
-          <th>Amount</th>
-          <th>Time</th>
-        </tr>
-      </thead>
-      <tbody id="recent-bids-body" data-bids-body>
-        <% bids.forEach((bid) => { %>
-          <tr>
-            <td data-label="Bidder"><%= bid.bidder_name %></td>
-            <td data-label="Amount"><%= formatCurrency(bid.amount) %></td>
-            <td data-label="Time"><%= formatSastDateTime(bid.created_at) %></td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
+    <div class="panel-card">
+      <div class="table-wrap table-wrap-flush">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Bidder</th>
+              <th>Amount</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="recent-bids-body" data-bids-body>
+            <% bids.forEach((bid) => { %>
+              <tr>
+                <td data-label="Bidder"><%= bid.bidder_name %></td>
+                <td data-label="Amount"><%= formatCurrency(bid.amount) %></td>
+                <td data-label="Time"><%= formatSastDateTime(bid.created_at) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
   <% } %>
 </section>
 

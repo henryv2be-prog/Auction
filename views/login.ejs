@@ -1,16 +1,19 @@
 <%- include("partials/header", { title, user, notice, formError }) %>
 
+<div class="public-toolbar public-toolbar-minimal">
+  <h1 class="public-toolbar-title">Sign in</h1>
+  <p class="public-toolbar-lead">Access your account to bid on items or open the admin dashboard.</p>
+</div>
+
 <section class="auth-card">
-  <h1>Sign in</h1>
-  <p>Access your account to bid or manage auctions.</p>
   <form action="/login" method="post" class="form-grid">
     <label for="email">Email</label>
-    <input id="email" name="email" type="email" required />
+    <input id="email" name="email" type="email" autocomplete="username" required />
 
     <label for="password">Password</label>
-    <input id="password" name="password" type="password" required />
+    <input id="password" name="password" type="password" autocomplete="current-password" required />
 
-    <button type="submit" class="btn">Login</button>
+    <button type="submit" class="btn btn-block">Continue</button>
   </form>
 </section>
 
