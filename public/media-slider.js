@@ -21,10 +21,23 @@
   let lightboxIndex = 0;
   let touchStartX = 0;
   let touchStartY = 0;
-  let isSwiping = false;
+  /** Suppress accidental click right after a horizontal swipe (ghost clicks on touch devices). */
+  let lastSwipeGestureAt = 0;
 
   if (!track || !slides.length) {
     return;
+  }
+
+  function pauseAllVideosExcept(activeIndex) {
+    slides.forEach((slide, idx) => {
+      const video = slide.querySelector("video");
+      if (!video) {
+        return;
+      }
+      if (idx !== activeIndex) {
+        video.pause();
+      }
+    });
   }
 
   function getSlideMeta(index) {
@@ -39,6 +52,7 @@
   function setIndex(index) {
     currentIndex = Math.max(0, Math.min(index, slides.length - 1));
     track.style.transform = `translateX(-${currentIndex * 100}%)`;
+    pauseAllVideosExcept(currentIndex);
 
     if (counter) {
       counter.textContent = `${currentIndex + 1} / ${slides.length}`;
@@ -65,6 +79,13 @@
       return;
     }
 
+    slides.forEach((slide) => {
+      const video = slide.querySelector("video");
+      if (video) {
+        video.pause();
+      }
+    });
+
     lightboxIndex = Math.max(0, Math.min(index, slides.length - 1));
     const media = getSlideMeta(lightboxIndex);
 
@@ -73,6 +94,8 @@
       const video = document.createElement("video");
       video.controls = true;
       video.autoplay = true;
+      video.playsInline = true;
+      video.setAttribute("playsinline", "");
       video.preload = "metadata";
       const sourceEl = document.createElement("source");
       sourceEl.src = media.src;
@@ -126,11 +149,21 @@
     dot.addEventListener("click", () => setIndex(index));
   });
 
+  function shouldIgnoreSlideClick() {
+    return Date.now() - lastSwipeGestureAt < 450;
+  }
+
   slides.forEach((slide, index) => {
-    slide.addEventListener("click", () => {
-      if (!isSwiping) {
-        openLightbox(index);
+    slide.addEventListener("click", (event) => {
+      if (shouldIgnoreSlideClick()) {
+        return;
       }
+      const video = slide.querySelector("video");
+      if (video && event.target instanceof HTMLVideoElement) {
+        return;
+      }
+      event.preventDefault();
+      openLightbox(index);
     });
     slide.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
@@ -146,7 +179,6 @@
       if (!event.touches || !event.touches.length) {
         return;
       }
-      isSwiping = false;
       touchStartX = event.touches[0].clientX;
       touchStartY = event.touches[0].clientY;
     },
@@ -164,7 +196,7 @@
       if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) {
         return;
       }
-      isSwiping = true;
+      lastSwipeGestureAt = Date.now();
       if (deltaX < 0) {
         move(1);
       } else {

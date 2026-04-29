@@ -178,7 +178,7 @@ app.locals.formatCurrency = formatCurrency;
 app.locals.formatSastDateTime = formatSastDateTime;
 app.locals.formatForDatetimeLocalInput = formatForDatetimeLocalInput;
 app.locals.SAST_TIMEZONE = SAST_TIMEZONE;
-app.locals.assetVersion = process.env.ASSET_VERSION || "20260428p";
+app.locals.assetVersion = process.env.ASSET_VERSION || "20260428q";
 app.locals.maxAuctionCoverMb = maxAuctionCoverMb;
 
 const staticAssetOptions = {
