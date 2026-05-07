@@ -9,9 +9,13 @@ function ensureDirectory(dirPath) {
 
 function resolveDataDir() {
   const configuredDataDir = String(process.env.DATA_DIR || "").trim();
+  const railwayVolume = String(process.env.RAILWAY_VOLUME_MOUNT_PATH || "").trim();
   let baseDir;
   if (configuredDataDir) {
     baseDir = path.resolve(configuredDataDir);
+  } else if (railwayVolume) {
+    // Railway injects this when a volume is attached; avoids writing to ephemeral /tmp.
+    baseDir = path.resolve(railwayVolume);
   } else if (process.env.NODE_ENV === "production") {
     baseDir = path.join(os.tmpdir(), "auction-data");
   } else {

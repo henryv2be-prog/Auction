@@ -105,10 +105,13 @@ See `.env.example`:
 
 For Railway or similar container platforms:
 
-1. Add a writable **Volume** (recommended path: `/data`)
-2. Set:
-   - `DATA_DIR=/data`
-   - optionally `DB_PATH=/data/auction.db`
-   - optionally `SESSION_DB_PATH=/data/sessions.sqlite`
+1. Add a writable **Volume** attached to this service (e.g. mount path **`/data`**).
+2. **Either:**
+   - Set **`DATA_DIR=/data`** (same path as the volume mount), **or**
+   - Leave `DATA_DIR` unset — when a volume is attached, Railway sets **`RAILWAY_VOLUME_MOUNT_PATH`**, and the app uses it automatically so SQLite and uploads land on the volume.
+3. Optional explicit paths (override defaults): `DB_PATH`, `SESSION_DB_PATH`, `UPLOADS_DIR`.
 
-The app now creates the data directory automatically at startup.
+After deploy, check logs for **`Persistent data directory:`** — it must be **`/data`** (or your mount path), not a `/tmp/...` path.
+
+The app creates directories at startup. **Data created before the volume was attached lived on ephemeral disk and cannot be recovered on the new volume.**
+

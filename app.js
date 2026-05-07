@@ -11,7 +11,7 @@ const multer = require("multer");
 const bcrypt = require("bcryptjs");
 
 const { initDb, getDb } = require("./db");
-const { resolveSessionDbPath, resolveUploadsDir } = require("./storage");
+const { resolveSessionDbPath, resolveUploadsDir, resolveDataDir } = require("./storage");
 const { requireRole } = require("./middleware/auth");
 const {
   parseSastInputToUtc,
@@ -1509,6 +1509,7 @@ const PORT = process.env.PORT || 3000;
 
 async function start() {
   await initDb();
+  console.log(`Persistent data directory: ${resolveDataDir()}`);
   startAuctionSweep();
   httpServer.listen(PORT, () => {
     console.log(`Auction platform running on http://localhost:${PORT}`);
